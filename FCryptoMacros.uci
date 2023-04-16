@@ -1,0 +1,15 @@
+`define FCDEBUG 1
+
+`define fclog(msg, cond, tag) \
+    `log(self.class.name $ "::" $ GetFuncName() $ "(): " $ `msg, \
+    `cond, \
+    `if(`tag) name("FCrypto-" $ string(`tag)) `else 'FCrypto' `endif)
+
+`define fcwarn(msg, cond) `fclog(`msg, `cond, 'WARNING')
+`define fcerror(msg, cond) `fclog(`msg, `cond, 'ERROR')
+
+`ifdef(FCDEBUG)
+    `define fcdebug(msg, cond) `fclog(`msg, `cond, 'DEBUG')
+`else
+    `define fcdebug(msg, cond, tag)
+`endif
