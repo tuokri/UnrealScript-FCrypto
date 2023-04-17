@@ -76,7 +76,7 @@ static final function int NEQ(int X, int Y)
     return (q | -q) >>> 31;
 }
 
-static final function int GT(int x, int y)
+static final function int GT(int X, int Y)
 {
     /*
      * If both x < 2^31 and x < 2^31, then y-x will have its high
@@ -90,10 +90,10 @@ static final function int GT(int x, int y)
      * Since (y-2^31)-(x-2^31) = y-x, the subtraction is already
      * fine.
      */
-    local int z;
+    local int Z;
 
-    z = y - x;
-    return (z ^ ((x ^ y) & (x ^ z))) >>> 31;
+    Z = Y - X;
+    return (Z ^ ((X ^ Y) & (X ^ Z))) >>> 31;
 }
 
 /*
@@ -122,6 +122,8 @@ static final function int CMP(int X, int Y)
 {
     return GT(X, Y) | -GT(Y, X);
 }
+
+`define LE(X, Y) ((GT(`X, `Y)) ^ 1)
 
 /*
  * Zeroize an integer. The announced bit length is set to the provided
@@ -338,24 +340,23 @@ static final function int BigInt_DecodeMod(
 
 static final function BigInt_Decode(
     out array<int> X,
-    const out array<byte> Src
+    const out array<byte> Src,
+    int Len
 )
 {
     local int V;
     local int Acc;
     local int AccLen;
     local int B;
-    local int SrcLen;
     local array<int> XArr;
     local int I;
 
-    SrcLen = Src.Length;
     V = 1;
     Acc = 0;
     AccLen = 0;
-    while (SrcLen-- > 0)
+    while (Len-- > 0)
     {
-        B = Src[SrcLen];
+        B = Src[Len];
         Acc = Acc | (B << AccLen);
         AccLen += 8;
         if (AccLen >= 15)
@@ -389,6 +390,7 @@ static final function BigInt_Decode(
 static final function BigInt_DecodeReduce(
     out array<int> X,
     const out array<byte> Src,
+    int Len,
     const out array<int> M
 )
 {
@@ -398,6 +400,7 @@ static final function BigInt_DecodeReduce(
     local int K;
     local int Acc;
     local int AccLen;
+    local int V;
 
     /*
      * Get the encoded bit length.
@@ -425,4 +428,181 @@ static final function BigInt_DecodeReduce(
     M_RBitLen = M_EBitLen >>> 4;
     M_RBitLen = (M_EBitLen & 15) + (M_RBitLen << 4) - M_RBitLen;
     MBLen = (M_RBitLen + 7) >>> 3;
+    K = MBLen -1;
+    if (K >= Len)
+    {
+        BigInt_Decode(X, Src, K);
+        X[0] = M_EBitLen;
+        return;
+    }
+
+    BigInt_Decode(X, Src, K);
+    X[0] = M_EBitLen;
+
+    /*
+     * Input remaining bytes, using 15-bit words.
+     */
+    Acc = 0;
+    AccLen = 0;
+    while (K < Len)
+    {
+        V = Src[K++];
+        Acc = (Acc << 8) | V;
+        AccLen += 8;
+        if (AccLen >= 15)
+        {
+            BigInt_MulAddSmall(X, Acc >>> (AccLen - 15), M);
+        }
+    }
+}
+
+/*
+ * Multiply x[] by 2^15 and then add integer z, modulo m[]. This
+ * function assumes that x[] and m[] have the same announced bit
+ * length, the announced bit length of m[] matches its true
+ * bit length.
+ *
+ * x[] and m[] MUST be distinct arrays. z MUST fit in 15 bits (upper
+ * bit set to 0).
+ *
+ * CT: only the common announced bit length of x and m leaks, not
+ * the values of x, z or m.
+ */
+static final function BigInt_MulAddSmall(
+    out array<int> X,
+    int Z,
+    const out array<int> M
+)
+{
+    /*
+     * Constant-time: we accept to leak the exact bit length of the
+     * modulus m.
+     */
+    local int M_BitLen;
+    local int MBlr;
+    local int U;
+    local int MLen;
+    local int Hi;
+    local int A0;
+    local int A;
+    local int B;
+    local int Q;
+    local int Cc;
+    local int Tb;
+    local int Over;
+    local int Under;
+    local int Rem;
+
+    /*
+     * Simple case: the modulus fits on one word.
+     */
+    M_BitLen = M[0];
+    if (M_BitLen == 0)
+    {
+        return;
+    }
+    if (M_BitLen <= 15)
+    {
+        DivRem16(X[1] << 15 | Z, M[1], Rem);
+        X[1] = Rem;
+        return;
+    }
+    MLen = (M_BitLen + 15) >>> 4;
+    MBlr = M_BitLen & 15;
+
+    /*
+     * Principle: we estimate the quotient (x*2^15+z)/m by
+     * doing a 30/15 division with the high words.
+     *
+     * Let:
+     *   w = 2^15
+     *   a = (w*a0 + a1) * w^N + a2
+     *   b = b0 * w^N + b2
+     * such that:
+     *   0 <= a0 < w
+     *   0 <= a1 < w
+     *   0 <= a2 < w^N
+     *   w/2 <= b0 < w
+     *   0 <= b2 < w^N
+     *   a < w*b
+     * I.e. the two top words of a are a0:a1, the top word of b is
+     * b0, we ensured that b0 is "full" (high bit set), and a is
+     * such that the quotient q = a/b fits on one word (0 <= q < w).
+     *
+     * If a = b*q + r (with 0 <= r < q), then we can estimate q by
+     * using a division on the top words:
+     *   a0*w + a1 = b0*u + v (with 0 <= v < b0)
+     * Then the following holds:
+     *   0 <= u <= w
+     *   u-2 <= q <= u
+     */
+    Hi = X[MLen];
+    if (MBlr == 0)
+    {
+        A0 = X[MLen];
+        // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
+        X[1] = Z;
+        A = (A0 << 15) + X[MLen];
+        B = M[MLen];
+    }
+    else
+    {
+        A0 = (X[MLen] << (15 - MBlr)) | (X[MLen - 1] >>> MBlr);
+        // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
+        X[1] = Z;
+        A = (A0 << 15) | (((X[MLen] << (15 - MBlr))
+            | (X[MLen - 1] >>> MBlr)) & 0x7FFF);
+        B = (M[MLen] << (15 - MBlr)) | (M[MLen - 1] >> MBlr);
+    }
+    Q = DivRem16(A, B,);
+
+    /*
+     * We computed an estimate for q, but the real one may be q,
+     * q-1 or q-2; moreover, the division may have returned a value
+     * 8000 or even 8001 if the two high words were identical, and
+     * we want to avoid values beyond 7FFF. We thus adjust q so
+     * that the "true" multiplier will be q+1, q or q-1, and q is
+     * in the 0000..7FFF range.
+     */
+    Q = MUX(EQ(B, A0), 0x7FFF, Q - 1 + ((Q - 1)) >>> 31);
+
+    /*
+	 * We subtract q*m from x (x has an extra high word of value 'hi').
+	 * Since q may be off by 1 (in either direction), we may have to
+	 * add or subtract m afterwards.
+	 *
+	 * The 'tb' flag will be true (1) at the end of the loop if the
+	 * result is greater than or equal to the modulus (not counting
+	 * 'hi' or the carry).
+	 */
+    Cc = 0;
+    Tb = 1;
+}
+
+/*
+ * Constant-time division. The divisor must not be larger than 16 bits,
+ * and the quotient must fit on 17 bits.
+ */
+static final function int DivRem16(
+    int X,
+    int D,
+    optional out int R
+)
+{
+    local int I;
+    local int Q;
+    local int Ctl;
+
+    Q = 0;
+    D = D << 16;
+    for (I = 16; I >= 0; --I)
+    {
+        Ctl = `LE(D, X);
+        Q = Q | (Ctl << I);
+        X -= (-Ctl) & D;
+        D = D >>> 1;
+    }
+    R = X;
+
+    return Q;
 }
