@@ -35,12 +35,33 @@ class BigInt extends Object
 
 // TODO: rewrite documentation to be more UScript-like.
 // TODO: remove the parts of documentation only relevant in C.
+// TODO: do all these constant time compiler tricks work in UScript?
 
-// TODO: should not use small functions like this in UScript (perf).
+// TODO: need to double-check porting of functions that work on uint16_t
+// values in BearSSL. Some operations like sizeof, shifts and hard-coded
+// constants (0x7FFF) may not work as expected when directly replacing
+// uint16_t variables with UScript 32-bit integers!
+
+private static final function MemMove(
+    out array<int> Dst,
+    const out array<int> Src,
+    int NumBytes,
+    optional int DstOffset = 0,
+    optional int SrcOffset = 0
+)
+{
+    local int I;
+
+    for (I = SrcOffset; I < 0; ++I)
+    {
+
+    }
+}
+
 /*
  * Negate a boolean.
  */
-static final function int NOT(int Ctl)
+private static final function int NOT(int Ctl)
 {
     return Ctl ^ 1;
 }
@@ -48,7 +69,7 @@ static final function int NOT(int Ctl)
 /*
  * Multiplexer: returns X if ctl == 1, y if ctl == 0.
  */
-static final function int MUX(int Ctl, int X, Int Y)
+private static final function int MUX(int Ctl, int X, Int Y)
 {
     return Y ^ (-Ctl & (X ^ Y));
 }
@@ -56,19 +77,18 @@ static final function int MUX(int Ctl, int X, Int Y)
 /*
  * Equality check: returns 1 if X == y, 0 otherwise.
  */
-static final function int EQ(int X, int Y)
+private static final function int EQ(int X, int Y)
 {
     local int Q;
 
     Q = X ^ Y;
-    // return NOT((Q | -Q) >>> 31);
-    return ((Q | -Q) >>> 31) ^ 1;
+    return NOT((Q | -Q) >>> 31);
 }
 
 /*
  * Inequality check: returns 1 if x != y, 0 otherwise.
  */
-static final function int NEQ(int X, int Y)
+private static final function int NEQ(int X, int Y)
 {
     local int Q;
 
@@ -76,7 +96,7 @@ static final function int NEQ(int X, int Y)
     return (q | -q) >>> 31;
 }
 
-static final function int GT(int X, int Y)
+private static final function int GT(int X, int Y)
 {
     /*
      * If both x < 2^31 and x < 2^31, then y-x will have its high
@@ -100,7 +120,7 @@ static final function int GT(int X, int Y)
  * Compute the bit length of a 32-bit integer. Returned value is between 0
  * and 32 (inclusive).
  */
-static final function int BIT_LENGTH(int X)
+private static final function int BIT_LENGTH(int X)
 {
     local int K;
     local int C;
@@ -118,12 +138,14 @@ static final function int BIT_LENGTH(int X)
  * General comparison: returned value is -1, 0 or 1, depending on
  * whether x is lower than, equal to, or greater than y.
  */
-static final function int CMP(int X, int Y)
+private static final function int CMP(int X, int Y)
 {
     return GT(X, Y) | -GT(Y, X);
 }
 
-`define LE(X, Y) ((GT(`X, `Y)) ^ 1)
+`define GE(X, Y) (NOT(GT(`Y, `X)))
+`define LT(X, Y) (GT(`Y, `X))
+`define LE(X, Y) (NOT(GT(`X, `Y)))
 
 /*
  * Zeroize an integer. The announced bit length is set to the provided
@@ -140,7 +162,10 @@ static final function BigInt_Zero(
     // memset(x, 0, ((bit_len + 15) >> 4) * sizeof *x);
 
     X[0] = BitLen;
-    for (I = 1; I < BitLen; ++I)
+    // TODO: this uses uint16_t in BearSSL, but we only have
+    // 32 bit integers in UScript. Use "(BitLen + 15 >>> 4) * 4"?
+    // Or just use X.Length since we aren't using C arrays here?
+    for (I = 1; I < (BitLen + 15 >>> 4) * 2; ++I)
     {
         X[I] = 0;
     }
@@ -156,7 +181,8 @@ static final function BigInt_Zero(
 static final function int BigInt_Add(
     out array<int> A,
     const out array<int> B,
-    int Ctl)
+    int Ctl
+)
 {
     local int Cc;
     local int U;
@@ -174,6 +200,40 @@ static final function int BigInt_Add(
         Bw = B[U];
         Naw = Aw + Bw + Cc;
         Cc = Naw >>> 15;
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw);
+    }
+
+    return Cc;
+}
+
+/*
+ * Subtract b[] from a[] and return the carry (0 or 1). If ctl is 0,
+ * then a[] is unmodified, but the carry is still computed and returned.
+ * The arrays a[] and b[] MUST have the same announced bit length.
+ *
+ * a[] and b[] MAY be the same array, but partial overlap is not allowed.
+ */
+static final function int BigInt_Sub(
+    out array<int> A,
+    const out array<int> B,
+    int Ctl
+)
+{
+    local int Cc;
+    local int U;
+    local int M;
+    local int Aw;
+    local int Bw;
+    local int Naw;
+
+    Cc = 0;
+    M = (A[0] + 31) >>> 4;
+    for (U = 1; U < M; ++U)
+    {
+        Aw = A[U];
+        Bw = B[U];
+        Naw = Aw - Bw - Cc;
+        CC = Naw >>> 31;
         A[U] = MUX(Ctl, Naw & 0x7FFF, Aw);
     }
 
@@ -452,7 +512,20 @@ static final function BigInt_DecodeReduce(
         if (AccLen >= 15)
         {
             BigInt_MulAddSmall(X, Acc >>> (AccLen - 15), M);
+            AccLen -= 15;
+            Acc = Acc & (~(-1 << AccLen));
         }
+    }
+
+    /*
+     * We may have some bits accumulated. We then perform a shift to
+     * be able to inject these bits as a full 15-bit word.
+     */
+    if (AccLen != 0)
+    {
+        Acc = (Acc | (X[1] << AccLen)) & 0x7FFF;
+        BigInt_RShift(X, 15 - AccLen);
+        BigInt_MulAddSmall(X, Acc, M);
     }
 }
 
@@ -492,6 +565,10 @@ static final function BigInt_MulAddSmall(
     local int Over;
     local int Under;
     local int Rem;
+    local int Mw;
+    local int Zl;
+    local int Xw;
+    local int Nxw;
 
     /*
      * Simple case: the modulus fits on one word.
@@ -540,7 +617,11 @@ static final function BigInt_MulAddSmall(
     if (MBlr == 0)
     {
         A0 = X[MLen];
+        // TODO:
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
+
+
+
         X[1] = Z;
         A = (A0 << 15) + X[MLen];
         B = M[MLen];
@@ -548,6 +629,7 @@ static final function BigInt_MulAddSmall(
     else
     {
         A0 = (X[MLen] << (15 - MBlr)) | (X[MLen - 1] >>> MBlr);
+        // TODO:
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
         X[1] = Z;
         A = (A0 << 15) | (((X[MLen] << (15 - MBlr))
@@ -567,16 +649,42 @@ static final function BigInt_MulAddSmall(
     Q = MUX(EQ(B, A0), 0x7FFF, Q - 1 + ((Q - 1)) >>> 31);
 
     /*
-	 * We subtract q*m from x (x has an extra high word of value 'hi').
-	 * Since q may be off by 1 (in either direction), we may have to
-	 * add or subtract m afterwards.
-	 *
-	 * The 'tb' flag will be true (1) at the end of the loop if the
-	 * result is greater than or equal to the modulus (not counting
-	 * 'hi' or the carry).
-	 */
+     * We subtract q*m from x (x has an extra high word of value 'hi').
+     * Since q may be off by 1 (in either direction), we may have to
+     * add or subtract m afterwards.
+     *
+     * The 'tb' flag will be true (1) at the end of the loop if the
+     * result is greater than or equal to the modulus (not counting
+     * 'hi' or the carry).
+     */
     Cc = 0;
     Tb = 1;
+    for (U = 1; U <= MLen; ++U)
+    {
+        Mw = M[U];
+        // Zl = MUL15(Mw, Q) + Cc;
+        Zl = (Mw * Q) + Cc;
+        Cc = Zl >>> 15;
+        Zl = Zl & 0x7FFF;
+        Xw = X[U];
+        Nxw = Xw - Zl;
+        Cc += Nxw >>> 31;
+        Nxw = Nxw & 0x7FFF;
+        X[U] = Nxw;
+        Tb = MUX(EQ(Nxw, Mw), Tb, GT(Nxw, Mw));
+    }
+
+    /*
+     * If we underestimated q, then either cc < hi (one extra bit
+     * beyond the top array word), or cc == hi and tb is true (no
+     * extra bit, but the result is not lower than the modulus).
+     *
+     * If we overestimated q, then cc > hi.
+     */
+    Over = GT(Cc, Hi);
+    Under = ~Over & (Tb | `LT(Cc, Hi));
+    BigInt_Add(X, M, Over);
+    BigInt_Sub(X, M, Under);
 }
 
 /*
@@ -605,4 +713,110 @@ static final function int DivRem16(
     R = X;
 
     return Q;
+}
+
+/*
+ * Right-shift an integer. The shift amount must be lower than 15
+ * bits.
+ */
+static final function BigInt_RShift(
+    out array<int> X,
+    int Count
+)
+{
+    local int U;
+    local int Len;
+    local int R;
+    local int W;
+
+    Len = (X[0] + 15) >>> 4;
+    if (Len == 0)
+    {
+        return;
+    }
+    R = X[1] >>> Count;
+    for (U = 2; U <= Len; ++U)
+    {
+        W = X[U];
+        X[U - 1] = ((W << (15 - Count)) | R) & 0x7FFF;
+        R = W >>> Count;
+    }
+    X[Len] = R;
+}
+
+/*
+ * Encode an integer into its big-endian unsigned representation. The
+ * output length in bytes is provided (parameter 'len'); if the length
+ * is too short then the integer is appropriately truncated; if it is
+ * too long then the extra bytes are set to 0.
+ */
+static final function BigInt_Encode(
+    out array<byte> Dst,
+    int Len,
+    const out array<int> X
+)
+{
+    local int U;
+    local int XLen;
+    local int Acc;
+    local int AccLen;
+    local int I;
+
+    XLen = (X[0] + 15) >>> 4;
+    if (XLen == 0)
+    {
+        // memset(dst, 0, len);
+        for (I = 0; I < Len; ++I)
+        {
+            Dst[I] = 0;
+        }
+        return;
+    }
+    U = 1;
+    Acc = 0;
+    AccLen = 0;
+    while (Len-- > 0)
+    {
+        if (AccLen < 8)
+        {
+            if (U <= XLen)
+            {
+                Acc += X[U++] << AccLen;
+            }
+            AccLen += 15;
+        }
+        Dst[Len] = Acc;
+        Acc = Acc >>> 8;
+        AccLen -= 8;
+    }
+}
+
+/*
+ * TODO: does this work for i15? Used for i31 and i32 in BearSSL.
+ */
+static final function string BigInt_ToString(
+    const out array<int> X
+)
+{
+    local int K;
+    local string Str;
+
+    if (X[0] == 0)
+    {
+        return " 00000000 (0, 0)";
+    }
+
+    Str = "";
+    for (K = (X[0] + 31) >>> 5; K > 0; --K)
+    {
+        // TODO:
+        // printf(" %08lX", (unsigned long)x[k]);
+        Str @= ToHex(X[K]);
+    }
+    // TODO:
+    // printf(" (%u, %u)", (unsigned)(x[0] >> 5), (unsigned)(x[0] & 31));
+
+    Str @= "(" $ X[0] >>> 5 $ "," @ X[0] & 31 $ ")";
+
+    return Str;
 }
