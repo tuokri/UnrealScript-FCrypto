@@ -27,6 +27,9 @@
  * UnrealScript arbitrary precision integer implementation
  * based on BearSSL "i15" implementation.
  *
+ * BearSSL uses uint16_t, but UScript only has 32-bit signed
+ * integers, so some adaptations have been made here.
+ *
  * See: https://www.bearssl.org/bigint.html.
  */
 class BigInt extends Object
@@ -42,6 +45,13 @@ class BigInt extends Object
 // constants (0x7FFF) may not work as expected when directly replacing
 // uint16_t variables with UScript 32-bit integers!
 
+const SIZEOF_UINT16_T = 2;
+
+/**
+ * C-style memmove operation.
+ * Offsets are the number of uint16_t values
+ * to ignore from the beginning of each array.
+ */
 private static final function MemMove(
     out array<int> Dst,
     const out array<int> Src,
@@ -50,11 +60,40 @@ private static final function MemMove(
     optional int SrcOffset = 0
 )
 {
-    local int I;
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+    local array<byte> DstBytes;
 
-    for (I = SrcOffset; I < 0; ++I)
+    /*
+     * Take all 16-bit integers from Src and put them
+     * into DstBytes byte array, taking SrcOffset into account.
+     */
+    IntIndex = SrcOffset;
+    ByteIndex = 0;
+    Shift = 8;
+    while (ByteIndex < NumBytes)
     {
+        DstBytes[ByteIndex++] = (Src[IntIndex] >>> Shift) & 0xff;
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+    }
 
+    /*
+     * Write DstBytes into Dst, taking DstOffset into account.
+     */
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = DstOffset;
+    for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        Dst[IntIndex] = (
+            (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
+        );
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+        Mask = 0xff << Shift;
     }
 }
 
@@ -165,7 +204,10 @@ static final function BigInt_Zero(
     // TODO: this uses uint16_t in BearSSL, but we only have
     // 32 bit integers in UScript. Use "(BitLen + 15 >>> 4) * 4"?
     // Or just use X.Length since we aren't using C arrays here?
-    for (I = 1; I < (BitLen + 15 >>> 4) * 2; ++I)
+
+    // TODO: need to use a temp byte array to make this work right!
+
+    for (I = 1; I < (BitLen + 15 >>> 4) * SIZEOF_UINT16_T; ++I)
     {
         X[I] = 0;
     }
@@ -617,11 +659,8 @@ static final function BigInt_MulAddSmall(
     if (MBlr == 0)
     {
         A0 = X[MLen];
-        // TODO:
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
-
-
-
+        MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
         X[1] = Z;
         A = (A0 << 15) + X[MLen];
         B = M[MLen];
@@ -629,8 +668,8 @@ static final function BigInt_MulAddSmall(
     else
     {
         A0 = (X[MLen] << (15 - MBlr)) | (X[MLen - 1] >>> MBlr);
-        // TODO:
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
+        MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
         X[1] = Z;
         A = (A0 << 15) | (((X[MLen] << (15 - MBlr))
             | (X[MLen - 1] >>> MBlr)) & 0x7FFF);
