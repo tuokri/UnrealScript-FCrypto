@@ -49,7 +49,8 @@ function Test_Add()
     local int Cc;
 
     Ctl = 0;
-    Cc = class'BigInt'.static.BigInt_Add(A, B, Ctl);
+    Cc = class'BigInt'.static.Add(A, B, Ctl);
+    `fclog("Cc:" @ Cc);
 }
 
 DefaultProperties

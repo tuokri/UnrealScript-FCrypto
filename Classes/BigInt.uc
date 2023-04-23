@@ -31,6 +31,8 @@
  * integers, so some adaptations have been made here.
  *
  * See: https://www.bearssl.org/bigint.html.
+ *
+ * TODO: Implement OOP style BigInt in addition to C-style version?
  */
 class BigInt extends Object
     abstract
@@ -87,6 +89,142 @@ private static final function MemMove(
     Mask = 0xff << Shift;
     IntIndex = DstOffset;
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        Dst[IntIndex] = (
+            (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
+        );
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+        Mask = 0xff << Shift;
+    }
+}
+
+/**
+ * C-style memset operation.
+ * Offset is the number of uint16_t values
+ * to ignore from the beginning of S.
+ */
+private static final function MemSet_UInt16(
+    out array<int> S,
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = Offset;
+    for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[IntIndex] = (S[IntIndex] & ~Mask) | ((C & 0xff) << Shift);
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+        Mask = 0xff << Shift;
+    }
+}
+
+/**
+ * C-style memset operation.
+ * Offset is the number of byte values
+ * to ignore from the beginning of S.
+ */
+private static final function MemSet_Byte(
+    out array<byte> S,
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int ByteIndex;
+
+    for (ByteIndex = Offset; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[ByteIndex] = C;
+    }
+}
+
+/**
+ * C-style memcpy operation.
+ * Offsets are the number of uint16_t values
+ * to ignore from the beginning of each array.
+ */
+private static final function MemCpy(
+    out array<int> Dst,
+    const out array<int> Src,
+    int NumBytes,
+    optional int DstOffset = 0,
+    optional int SrcOffset = 0
+)
+{
+    MemMove(Dst, Src, NumBytes, DstOffset, SrcOffset);
+}
+
+/*
+ * Conditional copy: src[] is copied into dst[] if and only if ctl is 1.
+ * dst[] and src[] may overlap completely (but not partially).
+ */
+private static final function CCOPY(
+    int Ctl,
+    out array<int> Dst,
+    const out array<int> Src,
+    int Len
+)
+{
+    local array<byte> DstBytes;
+    local array<byte> SrcBytes;
+    local int X;
+    local int Y;
+    local int I;
+    local int J;
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+
+    IntIndex = 0;
+    ByteIndex = 0;
+    Shift = 8;
+    while (ByteIndex < Len)
+    {
+        SrcBytes[ByteIndex++] = (Src[IntIndex] >>> Shift) & 0xff;
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+    }
+
+    IntIndex = 0;
+    ByteIndex = 0;
+    Shift = 8;
+    while (ByteIndex < Len)
+    {
+        DstBytes[ByteIndex++] = (Dst[IntIndex] >>> Shift) & 0xff;
+        Shift = (Shift + 8) % 16;
+        IntIndex += ByteIndex % 2;
+    }
+
+    I = 0;
+    J = 0;
+    while (Len-- > 0)
+    {
+        // x = *s ++;
+        // y = *d;
+        // *d = MUX(ctl, x, y);
+        // d ++;
+
+        X = SrcBytes[I++];
+        Y = DstBytes[J];
+        DstBytes[J] = MUX(Ctl, X, Y);
+        ++J;
+    }
+
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = 0;
+    for (ByteIndex = 0; ByteIndex < Len; ++ByteIndex)
     {
         Dst[IntIndex] = (
             (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
@@ -182,6 +320,23 @@ private static final function int CMP(int X, int Y)
     return GT(X, Y) | -GT(Y, X);
 }
 
+/*
+ * Returns 1 if x == 0, 0 otherwise. Take care that the operand is signed.
+ */
+private static final function int EQ0(int X)
+{
+    local int Q;
+
+    // q = (uint32_t)x;
+    Q = X;
+    return ~(Q | Q) >>> 31;
+}
+
+// TODO: Is this needed in UScript?
+// private static final function int MUL15()
+// {
+// }
+
 `define GE(X, Y) (NOT(GT(`Y, `X)))
 `define LT(X, Y) (GT(`Y, `X))
 `define LE(X, Y) (NOT(GT(`X, `Y)))
@@ -190,27 +345,15 @@ private static final function int CMP(int X, int Y)
  * Zeroize an integer. The announced bit length is set to the provided
  * value, and the corresponding words are set to 0.
  */
-static final function BigInt_Zero(
+static final function Zero(
     out array<int> X,
     int BitLen
 )
 {
-    local int I;
-
     // *x ++ = bit_len;
     // memset(x, 0, ((bit_len + 15) >> 4) * sizeof *x);
-
     X[0] = BitLen;
-    // TODO: this uses uint16_t in BearSSL, but we only have
-    // 32 bit integers in UScript. Use "(BitLen + 15 >>> 4) * 4"?
-    // Or just use X.Length since we aren't using C arrays here?
-
-    // TODO: need to use a temp byte array to make this work right!
-
-    for (I = 1; I < (BitLen + 15 >>> 4) * SIZEOF_UINT16_T; ++I)
-    {
-        X[I] = 0;
-    }
+    MemSet_UInt16(X, 0, (BitLen + 15 >>> 4) * SIZEOF_UINT16_T);
 }
 
 /*
@@ -220,7 +363,7 @@ static final function BigInt_Zero(
  *
  * a[] and b[] MAY be the same array, but partial overlap is not allowed.
  */
-static final function int BigInt_Add(
+static final function int Add(
     out array<int> A,
     const out array<int> B,
     int Ctl
@@ -255,7 +398,7 @@ static final function int BigInt_Add(
  *
  * a[] and b[] MAY be the same array, but partial overlap is not allowed.
  */
-static final function int BigInt_Sub(
+static final function int Sub(
     out array<int> A,
     const out array<int> B,
     int Ctl
@@ -289,7 +432,7 @@ static final function int BigInt_Sub(
  *
  * CT: value or length of X does not leak.
  */
-static final function int BigInt_BitLength(
+static final function int BitLength(
     const out array<int> X,
     int XLen
 )
@@ -327,7 +470,7 @@ static final function int BigInt_BitLength(
  * only of 'len' and the announced bit length of m. Whether x fits or
  * not does not leak either.
  */
-static final function int BigInt_DecodeMod(
+static final function int DecodeMod(
     out array<int> X,
     const out array<byte> Src,
     const out array<int> M
@@ -356,7 +499,6 @@ static final function int BigInt_DecodeMod(
      * the modulus length because it then guarantees that no accumulated
      * partial word remains to be processed.
      */
-
     local int MLen;
     local int TLen;
     local int Pass;
@@ -440,7 +582,7 @@ static final function int BigInt_DecodeMod(
     return R & 1;
 }
 
-static final function BigInt_Decode(
+static final function Decode(
     out array<int> X,
     const out array<byte> Src,
     int Len
@@ -473,13 +615,13 @@ static final function BigInt_Decode(
         X[V++] = Acc;
     }
 
-    // X[0] = BigInt_BitLength(X + 1, V - 1);
+    // X[0] = BitLength(X + 1, V - 1);
     // TODO: is there a faster way of doing this in UScript?
     for (I = 1; I < X.Length; ++I)
     {
         XArr[I] = X[I];
     }
-    X[0] = BigInt_BitLength(XArr, V - 1);
+    X[0] = BitLength(XArr, V - 1);
 }
 
 /*
@@ -489,7 +631,7 @@ static final function BigInt_Decode(
  *
  * x[] MUST be distinct from m[].
  */
-static final function BigInt_DecodeReduce(
+static final function DecodeReduce(
     out array<int> X,
     const out array<byte> Src,
     int Len,
@@ -521,7 +663,7 @@ static final function BigInt_DecodeReduce(
     /*
      * Clear the destination.
      */
-    BigInt_Zero(X, M_EBitLen);
+    Zero(X, M_EBitLen);
 
     /*
      * First decode directly as many bytes as possible. This requires
@@ -533,12 +675,12 @@ static final function BigInt_DecodeReduce(
     K = MBLen -1;
     if (K >= Len)
     {
-        BigInt_Decode(X, Src, K);
+        Decode(X, Src, K);
         X[0] = M_EBitLen;
         return;
     }
 
-    BigInt_Decode(X, Src, K);
+    Decode(X, Src, K);
     X[0] = M_EBitLen;
 
     /*
@@ -553,7 +695,7 @@ static final function BigInt_DecodeReduce(
         AccLen += 8;
         if (AccLen >= 15)
         {
-            BigInt_MulAddSmall(X, Acc >>> (AccLen - 15), M);
+            MulAddSmall(X, Acc >>> (AccLen - 15), M);
             AccLen -= 15;
             Acc = Acc & (~(-1 << AccLen));
         }
@@ -566,8 +708,8 @@ static final function BigInt_DecodeReduce(
     if (AccLen != 0)
     {
         Acc = (Acc | (X[1] << AccLen)) & 0x7FFF;
-        BigInt_RShift(X, 15 - AccLen);
-        BigInt_MulAddSmall(X, Acc, M);
+        RShift(X, 15 - AccLen);
+        MulAddSmall(X, Acc, M);
     }
 }
 
@@ -583,7 +725,7 @@ static final function BigInt_DecodeReduce(
  * CT: only the common announced bit length of x and m leaks, not
  * the values of x, z or m.
  */
-static final function BigInt_MulAddSmall(
+static final function MulAddSmall(
     out array<int> X,
     int Z,
     const out array<int> M
@@ -722,8 +864,8 @@ static final function BigInt_MulAddSmall(
      */
     Over = GT(Cc, Hi);
     Under = ~Over & (Tb | `LT(Cc, Hi));
-    BigInt_Add(X, M, Over);
-    BigInt_Sub(X, M, Under);
+    Add(X, M, Over);
+    Sub(X, M, Under);
 }
 
 /*
@@ -758,7 +900,7 @@ static final function int DivRem16(
  * Right-shift an integer. The shift amount must be lower than 15
  * bits.
  */
-static final function BigInt_RShift(
+static final function RShift(
     out array<int> X,
     int Count
 )
@@ -789,7 +931,7 @@ static final function BigInt_RShift(
  * is too short then the integer is appropriately truncated; if it is
  * too long then the extra bytes are set to 0.
  */
-static final function BigInt_Encode(
+static final function Encode(
     out array<byte> Dst,
     int Len,
     const out array<int> X
@@ -799,16 +941,12 @@ static final function BigInt_Encode(
     local int XLen;
     local int Acc;
     local int AccLen;
-    local int I;
 
     XLen = (X[0] + 15) >>> 4;
     if (XLen == 0)
     {
         // memset(dst, 0, len);
-        for (I = 0; I < Len; ++I)
-        {
-            Dst[I] = 0;
-        }
+        MemSet_Byte(Dst, 0, Len);
         return;
     }
     U = 1;
@@ -831,9 +969,866 @@ static final function BigInt_Encode(
 }
 
 /*
+ * Convert a modular integer back from Montgomery representation. The
+ * integer x[] MUST be lower than m[], but with the same announced bit
+ * length. The "m0i" parameter is equal to -(1/m0) mod 2^32, where m0 is
+ * the least significant value word of m[] (this works only if m[] is
+ * an odd integer).
+ */
+static final function FromMonty(
+    out array<int> X,
+    const out array<int> M,
+    int M0I
+)
+{
+    local int Len;
+    local int U;
+    local int V;
+    local int F;
+    local int Cc;
+    local int Z;
+
+    Len = (M[0] + 15) >>> 4;
+    for (U = 0; U < Len; ++U)
+    {
+        // F = MUL15(X[1], M0I) & 0x7FFF;
+        F = (X[1] * M0I) & 0x7FFF;
+        Cc = 0;
+        for (V = 0; V < Len; ++V)
+        {
+            // z = (uint32_t)x[v + 1] + MUL15(f, m[v + 1]) + cc;
+            Z = X[V + 1] + (F * M[V + 1]) + Cc;
+            Cc = Z >>> 15;
+            if (V != 0)
+            {
+                X[V] = Z & 0x7FFF;
+            }
+        }
+        X[Len] = Cc;
+    }
+
+    /*
+     * We may have to do an extra subtraction, but only if the
+     * value in x[] is indeed greater than or equal to that of m[],
+     * which is why we must do two calls (first call computes the
+     * carry, second call performs the subtraction only if the carry
+     * is 0).
+     */
+    Sub(X, M, NOT(Sub(X, M, 0)));
+}
+
+/*
+ * Convert a modular integer to Montgomery representation. The integer x[]
+ * MUST be lower than m[], but with the same announced bit length.
+ */
+static final function ToMonty(
+    out array<int> X,
+    const out array<int> M
+)
+{
+    local int K;
+
+    for (K = (M[0] + 15) >>> 4; K > 0; --K)
+    {
+        MulAddSmall(X, 0, M);
+    }
+}
+
+/*
+ * Test whether an integer is zero.
+ *
+ * This function is called "BIsZero" because
+ * "IsZero" would clash with Object::IsZero.
+ */
+static final function int BIsZero(
+    const out array<int> X
+)
+{
+    local int Z;
+    local int U;
+
+    Z = 0;
+    for (U = (X[0] + 15) >>> 4; U > 0; --U)
+    {
+        Z = Z | X[U];
+    }
+    return ~(Z | Z) >>> 31;
+}
+
+
+/*
+ * Negate big integer conditionally. The value consists of 'len' words,
+ * with 15 bits in each word (the top bit of each word should be 0,
+ * except possibly for the last word). If 'ctl' is 1, the negation is
+ * computed; otherwise, if 'ctl' is 0, then the value is unchanged.
+ */
+static final function CondNegate(
+    out array<int> A,
+    int Len,
+    int Ctl
+)
+{
+    local int K;
+    local int Cc;
+    local int Xm;
+    local int Aw;
+
+    Cc = Ctl;
+    Xm = 0x7FFF & ~Ctl;
+    for (K = 0; K < Len; ++K)
+    {
+        Aw = A[K];
+        Aw = (Aw ^ Xm) + Cc;
+        A[K] = Aw & 0x7FFF;
+        Cc = (Aw >>> 15) & 1;
+    }
+}
+
+/*
+ * Finish modular reduction. Rules on input parameters:
+ *
+ *   if neg = 1, then -m <= a < 0
+ *   if neg = 0, then 0 <= a < 2*m
+ *
+ * If neg = 0, then the top word of a[] may use 16 bits.
+ *
+ * Also, modulus m must be odd.
+ */
+static final function FinishMod(
+    out array<int> A,
+    int Len,
+    const out array<int> M,
+    int Neg
+)
+{
+    local int K;
+    local int Cc;
+    local int Xm;
+    local int Ym;
+    local int Aw;
+    local int Mw;
+
+    /*
+     * First pass: compare a (assumed nonnegative) with m.
+     */
+    Cc = 0;
+    for (K = 0; K < Len; ++K)
+    {
+        Aw = A[K];
+        Mw = M[K];
+        Cc = (Aw - Mw - Cc) >>> 31;
+    }
+
+    /*
+    * At this point:
+     *   if neg = 1, then we must add m (regardless of cc)
+     *   if neg = 0 and cc = 0, then we must subtract m
+     *   if neg = 0 and cc = 1, then we must do nothing
+     */
+    Xm = 0x7FFF & -Neg;
+    Ym = -(Neg | (1 - Cc));
+    Cc = Neg;
+    for (K = 0; K < Len; ++K)
+    {
+        Aw = A[K];
+        Mw = (M[K] ^ Xm) & Ym;
+        Aw = Aw - Mw - Cc;
+        A[K] = Aw & 0x7FFF;
+        Cc = Aw >>> 31;
+    }
+}
+
+/*
+ * Compute:
+ *   a <- (a*pa+b*pb)/(2^15)
+ *   b <- (a*qa+b*qb)/(2^15)
+ * The division is assumed to be exact (i.e. the low word is dropped).
+ * If the final a is negative, then it is negated. Similarly for b.
+ * Returned value is the combination of two bits:
+ *   bit 0: 1 if a had to be negated, 0 otherwise
+ *   bit 1: 1 if b had to be negated, 0 otherwise
+ *
+ * Factors pa, pb, qa and qb must be at most 2^15 in absolute value.
+ * Source integers a and b must be nonnegative; top word is not allowed
+ * to contain an extra 16th bit.
+ */
+static final function int CoReduce(
+    out array<int> A,
+    out array<int> B,
+    int Len,
+    int Pa,
+    int Pb,
+    int Qa,
+    int Qb
+)
+{
+    local int K;
+    local int Cca;
+    local int Ccb;
+    local int NegA;
+    local int NegB;
+    local int Wa;
+    local int Wb;
+    local int Za;
+    local int Zb;
+    local int Tta;
+    local int Ttb;
+
+    Cca = 0;
+    Ccb = 0;
+    for (K = 0; K < Len; ++K)
+    {
+        /*
+         * Since:
+         *   |pa| <= 2^15
+         *   |pb| <= 2^15
+         *   0 <= wa <= 2^15 - 1
+         *   0 <= wb <= 2^15 - 1
+         *   |Cca| <= 2^16 - 1
+         * Then:
+         *   |za| <= (2^15-1)*(2^16) + (2^16-1) = 2^31 - 1
+         *
+         * Thus, the new value of Cca is such that |Cca| <= 2^16 - 1.
+         * The same applies to Ccb.
+         */
+        Wa = A[K];
+        Wb = B[K];
+        Za = Wa * Pa + Wb * Pb + Cca;
+        Zb = Wa * Qa + Wb * Qb + Ccb;
+        if (K > 0)
+        {
+            A[K - 1] = Za & 0x7FFF;
+            B[K - 1] = Zb & 0x7FFF;
+        }
+        Tta = Za >>> 15;
+        Ttb = Zb >>> 15;
+        Cca = Tta; // cca = *(int16_t *)&tta;
+        Ccb = Ttb; // ccb = *(int16_t *)&ttb;
+    }
+    A[Len - 1] = Cca;
+    B[Len - 1] = Ccb;
+    NegA = Cca >>> 31;
+    NegB = Ccb >>> 31;
+    CondNegate(A, Len, NegA);
+    CondNegate(B, Len, NegB);
+    return NegA | (NegB << 1);
+}
+
+/*
+ * Compute:
+ *   a <- (a*pa+b*pb)/(2^15) mod m
+ *   b <- (a*qa+b*qb)/(2^15) mod m
+ *
+ * m0i is equal to -1/m[0] mod 2^15.
+ *
+ * Factors pa, pb, qa and qb must be at most 2^15 in absolute value.
+ * Source integers a and b must be nonnegative; top word is not allowed
+ * to contain an extra 16th bit.
+ */
+static final function CoReduceMod(
+    out array<int> A,
+    out array<int> B,
+    int Len,
+    int Pa,
+    int Pb,
+    int Qa,
+    int Qb,
+    const out array<int> M,
+    int M0I
+)
+{
+    local int K;
+    local int Cca;
+    local int Ccb;
+    local int Fa;
+    local int Fb;
+    local int Wa;
+    local int Wb;
+    local int Za;
+    local int Zb;
+    local int Tta;
+    local int Ttb;
+
+    Cca = 0;
+    Ccb = 0;
+    Fa = (A[0] * Pa + B[0] * Pb * M0I) & 0x7FFF;
+    Fb = (A[0] * Qa + B[0] * Qb * M0I) & 0x7FFF;
+    for (K = 0; K < Len; ++K)
+    {
+        /*
+         * In this loop, carries 'cca' and 'ccb' always fit on
+         * 17 bits (in absolute value).
+         */
+        Wa = A[K];
+        Wb = B[K];
+        Za = Wa * Pa + Wb * Pb + M[K] * Fa + Cca;
+        Zb = Wa * Qa + Wb * Qb + M[K] * Fb + Ccb;
+        if (K > 0)
+        {
+            A[K - 1] = Za & 0x7FFF;
+            B[K - 1] = Zb & 0x7FFF;
+        }
+
+        /*
+         * The XOR-and-sub construction below does an arithmetic
+         * right shift in a portable way (technically, right-shifting
+         * a negative signed value is implementation-defined in C).
+         */
+        Tta = Za >>> 15;
+        Ttb = Zb >>> 15;
+        Tta = (Tta ^ (1 << 16)) - (1 << 16);
+        Ttb = (TTb ^ (1 << 16)) - (1 << 16);
+        Cca = Tta;
+        Ccb = CCb;
+    }
+    A[Len - 1] = Cca;
+    B[Len - 1] = Ccb;
+
+    /*
+     * At this point:
+     *   -m <= a < 2*m
+     *   -m <= b < 2*m
+     * (this is a case of Montgomery reduction)
+     * The top word of 'a' and 'b' may have a 16-th bit set.
+     * We may have to add or subtract the modulus.
+     */
+    FinishMod(A, Len, M, Cca >>> 31);
+    FinishMod(B, Len, M, Ccb >>> 31);
+}
+
+/*
+ * Compute x/y mod m, result in x. Values x and y must be between 0 and
+ * m-1, and have the same announced bit length as m. Modulus m must be
+ * odd. The "m0i" parameter is equal to -1/m mod 2^31. The array 't'
+ * must point to a temporary area that can hold at least three integers
+ * of the size of m.
+ *
+ * m may not overlap x and y. x and y may overlap each other (this can
+ * be useful to test whether a value is invertible modulo m). t must be
+ * disjoint from all other arrays.
+ *
+ * Returned value is 1 on success, 0 otherwise. Success is attained if
+ * y is invertible modulo m.
+ */
+static final function int ModDiv(
+    out array<int> X,
+    const out array<int> Y,
+    const out array<int> M,
+    int M0I,
+    out array<int> T
+)
+{
+    /*
+     * Algorithm is an extended binary GCD. We maintain four values
+     * a, b, u and v, with the following invariants:
+     *
+     *   a * x = y * u mod m
+     *   b * x = y * v mod m
+     *
+     * Starting values are:
+     *
+     *   a = y
+     *   b = m
+     *   u = x
+     *   v = 0
+     *
+     * The formal definition of the algorithm is a sequence of steps:
+     *
+     *   - If a is even, then a <- a/2 and u <- u/2 mod m.
+     *   - Otherwise, if b is even, then b <- b/2 and v <- v/2 mod m.
+     *   - Otherwise, if a > b, then a <- (a-b)/2 and u <- (u-v)/2 mod m.
+     *   - Otherwise, b <- (b-a)/2 and v <- (v-u)/2 mod m.
+     *
+     * Algorithm stops when a = b. At that point, they both are equal
+     * to GCD(y,m); the modular division succeeds if that value is 1.
+     * The result of the modular division is then u (or v: both are
+     * equal at that point).
+     *
+     * Each step makes either a or b shrink by at least one bit; hence,
+     * if m has bit length k bits, then 2k-2 steps are sufficient.
+     *
+     *
+     * Though complexity is quadratic in the size of m, the bit-by-bit
+     * processing is not very efficient. We can speed up processing by
+     * remarking that the decisions are taken based only on observation
+     * of the top and low bits of a and b.
+     *
+     * In the loop below, at each iteration, we use the two top words
+     * of a and b, and the low words of a and b, to compute reduction
+     * parameters pa, pb, qa and qb such that the new values for a
+     * and b are:
+     *
+     *   a' = (a*pa + b*pb) / (2^15)
+     *   b' = (a*qa + b*qb) / (2^15)
+     *
+     * the division being exact.
+     *
+     * Since the choices are based on the top words, they may be slightly
+     * off, requiring an optional correction: if a' < 0, then we replace
+     * pa with -pa, and pb with -pb. The total length of a and b is
+     * thus reduced by at least 14 bits at each iteration.
+     *
+     * The stopping conditions are still the same, though: when a
+     * and b become equal, they must be both odd (since m is odd,
+     * the GCD cannot be even), therefore the next operation is a
+     * subtraction, and one of the values becomes 0. At that point,
+     * nothing else happens, i.e. one value is stuck at 0, and the
+     * other one is the GCD.
+     */
+    local int Len;
+    local int K;
+    local array<int> A;
+    local array<int> B;
+    local array<int> U;
+    local array<int> V;
+    local array<int> MCopy;
+    local int Num;
+    local int R;
+    local int J;
+    local int C0;
+    local int C1;
+    local int A0;
+    local int A1;
+    local int B0;
+    local int B1;
+    local int A_Hi;
+    local int B_Hi;
+    local int A_Lo;
+    local int B_Lo;
+    local int Pa;
+    local int Pb;
+    local int Qa;
+    local int Qb;
+    local int I;
+    local int Aw;
+    local int Bw;
+    local int Oa;
+    local int Ob;
+    local int CAB;
+    local int CBA;
+    local int CA;
+
+    Len = (M[0] + 15) >>> 4;
+    A = T;
+
+    // B = A + Len;
+    B = A;
+    B.Remove(0, Len);
+
+    // U = X + 1;
+    U = X;
+    U.Remove(0, 1);
+
+    // V = B + Len;
+    V = B;
+    V.Remove(0, Len);
+
+    // memcpy(a, y + 1, len * sizeof *y);
+    // memcpy(b, m + 1, len * sizeof *m);
+    // memset(v, 0, len * sizeof *v);
+    MemCpy(A, Y, Len * SIZEOF_UINT16_T, 0, 1);
+    MemCpy(B, M, Len * SIZEOF_UINT16_T, 0, 1);
+    MemSet_UInt16(V, 0, Len * SIZEOF_UINT16_T);
+
+    /*
+     * Loop below ensures that a and b are reduced by some bits each,
+     * for a total of at least 14 bits.
+     */
+    for (Num = ((M[0] - (M[0] >>> 4)) << 1) + 14; Num >= 14; Num -= 14)
+    {
+        /*
+         * Extract top words of a and b. If j is the highest
+         * index >= 1 such that a[j] != 0 or b[j] != 0, then we want
+         * (a[j] << 15) + a[j - 1], and (b[j] << 15) + b[j - 1].
+         * If a and b are down to one word each, then we use a[0]
+         * and b[0].
+         */
+        // c0 = (uint32_t)-1;
+        // c1 = (uint32_t)-1;
+        c0 = -1;
+        c1 = -1;
+        A0 = 0;
+        A1 = 0;
+        B0 = 0;
+        B1 = 0;
+        J = Len;
+        while (J-- > 0)
+        {
+            Aw = A[J];
+            Bw = B[J];
+            A0 = A0 ^ ((A0 ^ Aw) & C0);
+            A1 = A1 ^ ((A1 ^ Aw) & C1);
+            B0 = B0 ^ ((A1 ^ Bw) & C0);
+            B1 = B1 ^ ((A1 ^ Bw) & C1);
+            C1 = C0;
+            C0 = C0 & ((((Aw | Bw) + 0xFFFF) >>> 16) - 1);
+        }
+
+        /*
+         * If c1 = 0, then we grabbed two words for a and b.
+         * If c1 != 0 but c0 = 0, then we grabbed one word. It
+         * is not possible that c1 != 0 and c0 != 0, because that
+         * would mean that both integers are zero.
+         */
+        A1 = A1 | (A0 & C1);
+        A0 = A0 & (~C1);
+        B1 = B1 | (B0 & C1);
+        B0 = B0 & (~C1);
+        A_Hi = (A0 << 15) + A1;
+        B_Hi = (B0 << 15) + B1;
+        A_Lo = A[0];
+        B_Lo = B[0];
+
+        /*
+         * Compute reduction factors:
+         *
+         *   a' = a*pa + b*pb
+         *   b' = a*qa + b*qb
+         *
+         * such that a' and b' are both multiple of 2^15, but are
+         * only marginally larger than a and b.
+         */
+        Pa = 1;
+        Pb = 0;
+        Qa = 0;
+        Qb = 1;
+        for (I = 0; I < 15; ++I)
+        {
+            /*
+             * At each iteration:
+             *
+             *   a <- (a-b)/2 if: a is odd, b is odd, a_hi > b_hi
+             *   b <- (b-a)/2 if: a is odd, b is odd, a_hi <= b_hi
+             *   a <- a/2 if: a is even
+             *   b <- b/2 if: a is odd, b is even
+             *
+             * We multiply a_lo and b_lo by 2 at each
+             * iteration, thus a division by 2 really is a
+             * non-multiplication by 2.
+             */
+
+            /*
+             * cAB = 1 if b must be subtracted from a
+             * cBA = 1 if a must be subtracted from b
+             * cA = 1 if a is divided by 2, 0 otherwise
+             *
+             * Rules:
+             *
+             *   cAB and cBA cannot be both 1.
+             *   if a is not divided by 2, b is.
+             */
+            R = GT(A_Hi, A_Lo);
+            Oa = (A_Lo >>> I) & 1;
+            Ob = (B_Lo >>> I) & 1;
+            CAB = Oa & Ob & R;
+            CBA = Oa & Ob & NOT(R);
+            CA = CAB | NOT(Oa);
+
+            /*
+             * Conditional subtractions.
+             */
+            A_Lo -= B_Lo & -CAB;
+            A_Hi -= B_Hi & -CAB;
+            Pa -= Qa & -CAB;
+            Pb -= Qb & -CAB;
+            B_Lo -= A_Lo & -CBA;
+            B_Hi -= A_Hi & -CBA;
+            Qa -= Pa & -CBA;
+            Qb -= Pb & -CBA;
+
+            /*
+             * Shifting.
+             */
+            A_Lo += A_Lo & (Ca - 1);
+            Pa += Pa & (CA - 1);
+            Pb += Pb & (CA - 1);
+            A_Hi = A_Hi ^ ((A_Hi ^ (A_Hi >>> 1)) & -CA);
+            B_Lo += B_Lo - CA;
+            Qa += Qb & -CA;
+            Qb += Qb & -CA;
+            B_Hi = B_Hi ^ ((B_Hi ^ (B_Hi >>> 1)) & (CA - 1));
+        }
+
+        /*
+         * Replace a and b with new values a' and b'.
+         */
+        R = CoReduce(A, B, Len, Pa, Pb, Qa, Qb);
+        Pa -= Pa * ((R & 1) << 1);
+        Pb -= Pb * ((R & 1) << 1);
+        Qa -= Qa * (R & 2);
+        Qb -= Qb * (R & 2);
+        // CoReduceMod(U, V, Len, Pa, Pb, Qa, Qb, M + 1, M0I);
+        MCopy = M;
+        MCopy.Remove(0, 1);
+        CoReduceMod(U, V, Len, Pa, Pb, Qa, Qb, MCopy, M0I);
+    }
+
+    /*
+     * Now one of the arrays should be 0, and the other contains
+     * the GCD. If a is 0, then u is 0 as well, and v contains
+     * the division result.
+     * Result is correct if and only if GCD is 1.
+     */
+    R = (A[0] | B[0]) ^ 1;
+    U[0] = U[0] | (V[0]);
+    for (K = 1; K < Len; ++K)
+    {
+        R = R | (A[K] | B[K]);
+        U[K] = U[K] | (V[K]);
+    }
+    return EQ0(R);
+}
+
+/*
+ * Compute a modular exponentiation. x[] MUST be an integer modulo m[]
+ * (same announced bit length, lower value). m[] MUST be odd. The
+ * exponent is in big-endian unsigned notation, over 'elen' bytes. The
+ * "m0i" parameter is equal to -(1/m0) mod 2^32, where m0 is the least
+ * significant value word of m[] (this works only if m[] is an odd
+ * integer). The t1[] and t2[] parameters must be temporary arrays,
+ * each large enough to accommodate an integer with the same size as m[].
+ */
+static final function ModPow(
+    out array<int> X,
+    const out array<byte> E,
+    int ELen,
+    const out array<int> M,
+    int M0I,
+    out array<int> T1,
+    out array<int> T2
+)
+{
+    local int MLen;
+    local int K;
+    local int Ctl;
+
+    MLen = ((M[0] + 31) >>> 4) * SIZEOF_UINT16_T;
+    MemCpy(T1, X, MLen);
+    ToMonty(T1, M);
+    Zero(X, M[0]);
+    X[1] = 1;
+    for (K = 0; K < (ELen << 3); ++K)
+    {
+        Ctl = (E[ELen - 1 - (K >>> 3)] >> (K & 7)) & 1;
+        MontyMul(T2, X, T1, M, M0I);
+        CCOPY(Ctl, X, T2, MLen);
+        MontyMul(T2, T1, T1, M, M0I);
+        MemCpy(T1, T2, MLen);
+    }
+}
+
+/*
+ * Compute a modular Montgomery multiplication. d[] is filled with the
+ * value of x*y/R modulo m[] (where R is the Montgomery factor). The
+ * array d[] MUST be distinct from x[], y[] and m[]. x[] and y[] MUST be
+ * numerically lower than m[]. x[] and y[] MAY be the same array. The
+ * "m0i" parameter is equal to -(1/m0) mod 2^32, where m0 is the least
+ * significant value word of m[] (this works only if m[] is an odd
+ * integer).
+ */
+static final function MontyMul(
+    out array<int> D,
+    const out array<int> X,
+    const out array<int> Y,
+    const out array<int> M,
+    int M0I
+)
+{
+    local int Len;
+    local int Len4;
+    local int U;
+    local int V;
+    local int Dh;
+    local int F;
+    local int Xu;
+    local int R;
+    local int Zh;
+    local int Z;
+
+    Len = (M[0] + 15) >>> 4;
+    Len4 = Len & ~3;
+    Zero(D, M[0]);
+    Dh = 0;
+    for (U = 0; U < Len; ++U)
+    {
+        Xu = X[U + 1];
+        // f = MUL15((d[1] + MUL15(x[u + 1], y[1])) & 0x7FFF, m0i) & 0x7FFF;
+        F = (((D[1] + (X[U + 1] * Y[1])) & 0x7FFF) * M0I) & 0x7FFF;
+        R = 0;
+        for (V = 0; V < Len4; V += 4)
+        {
+            Z = D[V + 1] + (Xu * Y[V + 1]) + (F * M[V + 1]) + R;
+            R = Z >>> 15;
+            D[V/*+0*/] = Z & 0x7FFF;
+            Z = D[V + 2] + (Xu * Y[V + 2]) + (F * M[V + 2]) + R;
+            R = Z >>> 15;
+            D[V + 1] = Z & 0x7FFF;
+            Z = D[V + 3] + (Xu * Y[V + 3]) + (F * M[V + 3]) + R;
+            R = Z >>> 15;
+            D[V + 2] = Z & 0x7FFF;
+            Z = D[V + 4] + (Xu * Y[V + 4]) + (F * M[V + 4]) + R;
+            R = Z >>> 15;
+            D[V + 3] = Z & 0x7FFF;
+        }
+
+        for (Z = 0; V < Len; ++V)
+        {
+            Z = D[V + 1] + (Xu * Y[V + 1]) + (F * M[V + 1]) + R;
+            R = Z >>> 15;
+            D[V/*+0*/] = Z & 0x7FFF;
+        }
+
+        Zh = Dh + R;
+        D[Len] = Zh & 0x7FFF;
+        Dh = Zh >>> 15;
+    }
+
+    /*
+     * Restore the bit length (it was overwritten in the loop above).
+     */
+    D[0] = M[0];
+
+    /*
+     * d[] may be greater than m[], but it is still lower than twice
+     * the modulus.
+     */
+    Sub(D, M, NEQ(DH, 0) | NOT(Sub(D, M, 0)));
+}
+
+/*
+ * Compute a modular exponentiation. x[] MUST be an integer modulo m[]
+ * (same announced bit length, lower value). m[] MUST be odd. The
+ * exponent is in big-endian unsigned notation, over 'elen' bytes. The
+ * "m0i" parameter is equal to -(1/m0) mod 2^31, where m0 is the least
+ * significant value word of m[] (this works only if m[] is an odd
+ * integer). The tmp[] array is used for temporaries, and has size
+ * 'twlen' words; it must be large enough to accommodate at least two
+ * temporary values with the same size as m[] (including the leading
+ * "bit length" word). If there is room for more temporaries, then this
+ * function may use the extra room for window-based optimisation,
+ * resulting in faster computations.
+ *
+ * Returned value is 1 on success, 0 on error. An error is reported if
+ * the provided tmp[] array is too short.
+ */
+static final function int ModPowOpt(
+    out array<int> X,
+    const out array<byte> E,
+    int ELen,
+    const out array<int> M,
+    int M0I,
+    out array<int> Tmp,
+    int TWLen
+)
+{
+    local int MLen;
+    local int MWLen;
+    local array<int> T1;
+    local array<int> T2;
+    local array<int> Base;
+    local array<int> BaseCopy;
+    local int U;
+    local int V;
+    local int Acc;
+    local int AccLen;
+    local int WinLen;
+    local int I;
+    local int K;
+    local int Bits;
+
+    /*
+     * Get modulus size.
+     */
+    MWLen = (M[0] + 31) >>> 4;
+    MLen = MWLen * SIZEOF_UINT16_T;
+    MWLen += (MWLen & 1);
+    T1 = Tmp;
+    // t2 = tmp + mwlen;
+    T2 = Tmp;
+    T2.Remove(0, MWLen);
+
+    /*
+     * Compute possible window size, with a maximum of 5 bits.
+     * When the window has size 1 bit, we use a specific code
+     * that requires only two temporaries. Otherwise, for a
+     * window of k bits, we need 2^k+1 temporaries.
+     */
+    if (TWLen < (MWLen << 1))
+    {
+        return 0;
+    }
+    for (WinLen = 5; WinLen > 1; --WinLen)
+    {
+        if (((1 << WinLen) + 1) * MWLen <= TWLen)
+        {
+            break;
+        }
+    }
+
+    /*
+     * Everything is done in Montgomery representation.
+     */
+    ToMonty(X, M);
+
+    /*
+     * Compute window contents. If the window has size one bit only,
+     * then t2 is set to x; otherwise, t2[0] is left untouched, and
+     * t2[k] is set to x^k (for k >= 1).
+     */
+    if (WinLen == 1)
+    {
+        MemCpy(T2, X, MLen);
+    }
+    else
+    {
+        // memcpy(t2 + mwlen, x, mlen);
+        MemCpy(T2, X, MLen, MWLen);
+        // base = t2 + mwlen;
+        Base = T2;
+        Base.Remove(0, MWLen);
+        for (U = 2; U < (1 << WinLen); ++U)
+        {
+            // TODO: might need to double-check this!
+
+            // br_i15_montymul(base + mwlen, base, x, m, m0i);
+            BaseCopy = Base;
+            BaseCopy.Remove(0, MWLen);
+            MontyMul(BaseCopy, Base, X, M, M0I);
+            Base = BaseCopy;
+
+            // base += mwlen;
+            Base.Remove(0, MWLen);
+        }
+    }
+
+    /*
+     * We need to set x to 1, in Montgomery representation. This can
+     * be done efficiently by setting the high word to 1, then doing
+     * one word-sized shift.
+     */
+    Zero(X, M[0]);
+    X[(M[0] + 15) >>> 4] = 1;
+    MulAddSmall(X, 0, M);
+
+    /*
+     * We process bits from most to least significant. At each
+     * loop iteration, we have acc_len bits in acc.
+     */
+    Acc = 0;
+    AccLen = 0;
+    while (AccLen > 0 || ELen > 0)
+    {
+        /*
+         * Get the next bits.
+         */
+        K = WinLen;
+    }
+}
+
+/*
  * TODO: does this work for i15? Used for i31 and i32 in BearSSL.
  */
-static final function string BigInt_ToString(
+static final function string ToString(
     const out array<int> X
 )
 {
