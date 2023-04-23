@@ -1735,6 +1735,8 @@ static final function int ModPowOpt(
     local int I;
     local int K;
     local int Bits;
+    local int EIndex;
+    local int Mask;
 
     /*
      * Get modulus size.
@@ -1816,12 +1818,197 @@ static final function int ModPowOpt(
      */
     Acc = 0;
     AccLen = 0;
+    EIndex = 0;
     while (AccLen > 0 || ELen > 0)
     {
         /*
          * Get the next bits.
          */
         K = WinLen;
+        if (AccLen < WinLen)
+        {
+            if (ELen > 0)
+            {
+                Acc = (Acc << 8) | E[EIndex++];
+                --ELen;
+                AccLen += 8;
+            }
+            else
+            {
+                K = AccLen;
+            }
+        }
+        Bits = (Acc >>> (AccLen - K)) & ((1 << K) - 1);
+        AccLen -= K;
+
+        /*
+         * We could get exactly k bits. Compute k squarings.
+         */
+        for (I = 0; I < K; ++I)
+        {
+            MontyMul(T1, X, X, M, M0I);
+            MemCpy(X, T1, MLen);
+        }
+
+        /*
+         * Window lookup: we want to set t2 to the window
+         * lookup value, assuming the bits are non-zero. If
+         * the window length is 1 bit only, then t2 is
+         * already set; otherwise, we do a constant-time lookup.
+         */
+        if (WinLen > 1)
+        {
+            Zero(T2, M[0]);
+            // Base = T2 + MWLen;
+            Base = T2;
+            Base.Remove(0, MWLen);
+            for (U = 1; U < (1 << K); ++U)
+            {
+                Mask = -EQ(U, Bits);
+                for (V = 1; V < MWLen; ++V)
+                {
+                    T2[V] = T2[V] | (Mask & Base[V]);
+                }
+                Base.Remove(0, MWLen);
+            }
+        }
+
+        /*
+         * Multiply with the looked-up value. We keep the
+         * product only if the exponent bits are not all-zero.
+         */
+        MontyMul(T1, X, T2, M, M0I);
+        CCOPY(NEQ(Bits, 0), X, T1, MLen);
+    }
+
+    /*
+     * Convert back from Montgomery representation, and exit.
+     */
+    FromMonty(X, M, M0I);
+    return 1;
+}
+
+/*
+ * Compute d+a*b, result in d. The initial announced bit length of d[]
+ * MUST match that of a[]. The d[] array MUST be large enough to
+ * accommodate the full result, plus (possibly) an extra word. The
+ * resulting announced bit length of d[] will be the sum of the announced
+ * bit lengths of a[] and b[] (therefore, it may be larger than the actual
+ * bit length of the numerical result).
+ *
+ * a[] and b[] may be the same array. d[] must be disjoint from both a[]
+ * and b[].
+ */
+static final function MulAcc(
+    out array<int> D,
+    const out array<int> A,
+    const out array<int> B
+)
+{
+    local int ALen;
+    local int BLen;
+    local int U;
+    local int Dl;
+    local int Dh;
+    local int F;
+    local int V;
+    local int Cc;
+    local int Z;
+
+    ALen = (A[0] + 15) >>> 4;
+    BLen = (B[0] + 15) >>> 4;
+
+    /*
+     * Announced bit length of d[] will be the sum of the announced
+     * bit lengths of a[] and b[]; but the lengths are encoded.
+     */
+    Dl = (A[0] & 15) + (B[0] & 15);
+    Dh = (A[0] >>> 4) + (B[0] >>> 4);
+    D[0] = (Dh << 4) + Dl + (~(Dl - 15) >>> 31);
+
+    for (U = 0; U < BLen; ++U)
+    {
+        F = B[1 + U];
+        Cc = 0;
+        for (V = 0; V < ALen; ++V)
+        {
+            Z = D[1 + U + V] + (F * A[V + 1]) + Cc;
+            Cc = Z >>> 15;
+            D[1 + U + V] = Z & 0x7FFF;
+        }
+        D[1 + U + ALen] = Cc;
+    }
+}
+
+/*
+ * Compute -(1/x) mod 2^15. If x is even, then this function returns 0.
+ */
+static final function int NInv15(int X)
+{
+    local int Y;
+
+    Y = 2 - X;
+    Y = Y * (2 - (X * Y));
+    Y = Y * (2 - (X * Y));
+    Y = Y * (2 - (X * Y));
+    return MUX(X & 1, -Y, 0) & 0x7FFF;
+}
+
+/*
+ * Reduce an integer (a[]) modulo another (m[]). The result is written
+ * in x[] and its announced bit length is set to be equal to that of m[].
+ *
+ * x[] MUST be distinct from a[] and m[].
+ *
+ * CT: only announced bit lengths leak, not values of x, a or m.
+ */
+static final function Reduce(
+    out array<int> X,
+    const out array<int> A,
+    const out array<int> M
+)
+{
+    local int M_BitLen;
+    local int A_BitLen;
+    local int MLen;
+    local int ALen;
+    local int U;
+
+    M_BitLen = M[0];
+    MLen = (M_BitLen + 15) >>> 4;
+
+    X[0] = M_BitLen;
+    if (M_BitLen == 0)
+    {
+        return;
+    }
+
+    /*
+     * If the source is shorter, then simply copy all words from a[]
+     * and zero out the upper words.
+     */
+    A_BitLen = A[0];
+    ALen = (A_BitLen + 15) >>> 4;
+    if (A_BitLen < M_BitLen)
+    {
+        MemCpy(X, A, ALen * SIZEOF_UINT16_T, 1, 1);
+        for (U = ALen; U < MLen; ++U)
+        {
+            X[U + 1] = 0;
+        }
+        return;
+    }
+
+    /*
+     * The source length is at least equal to that of the modulus.
+     * We must thus copy N-1 words, and input the remaining words
+     * one by one.
+     */
+    MemCpy(X, A, (MLen - 1) * SIZEOF_UINT16_T, 1, 2 + (ALen - MLen));
+    X[MLen] = 0;
+    for (U = 1 + ALen - MLen; U > 0; --U)
+    {
+        MulAddSmall(X, A[U], M);
     }
 }
 
