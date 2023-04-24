@@ -35,22 +35,7 @@ class BigIntTestCommandlet extends Commandlet;
 event int Main(string Params)
 {
     `fclog("Executing BigInt tests...");
-
-    Test_Add();
-
     return 0;
-}
-
-function Test_Add()
-{
-    local array<int> A;
-    local array<int> B;
-    local int Ctl;
-    local int Cc;
-
-    Ctl = 0;
-    Cc = class'BigInt'.static.Add(A, B, Ctl);
-    `fclog("Cc:" @ Cc);
 }
 
 DefaultProperties

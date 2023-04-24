@@ -473,6 +473,7 @@ static final function int BitLength(
 static final function int DecodeMod(
     out array<int> X,
     const out array<byte> Src,
+    int Len,
     const out array<int> M
 )
 {
@@ -513,9 +514,9 @@ static final function int DecodeMod(
 
     MLen = (M[0] + 15) >>> 4;
     TLen = (MLen << 1);
-    if (TLen < Src.Length)
+    if (TLen < Len)
     {
-        TLen = Src.Length;
+        TLen = Len;
     }
     TLen += 4;
     R = 0;
@@ -527,9 +528,9 @@ static final function int DecodeMod(
 
         for (U = 0; U < TLen; ++U)
         {
-            if (U < Src.Length)
+            if (U < Len)
             {
-                B = Src[Src.Length - 1 - U];
+                B = Src[Len - 1 - U];
             }
             else
             {
@@ -582,6 +583,13 @@ static final function int DecodeMod(
     return R & 1;
 }
 
+/*
+ * Decode an integer from its big-endian unsigned representation. The
+ * "true" bit length of the integer is computed, but all words of x[]
+ * corresponding to the full 'len' bytes of the source are set.
+ *
+ * CT: value or length of x does not leak.
+ */
 static final function Decode(
     out array<int> X,
     const out array<byte> Src,
@@ -593,7 +601,6 @@ static final function Decode(
     local int AccLen;
     local int B;
     local array<int> XArr;
-    local int I;
 
     V = 1;
     Acc = 0;
@@ -601,6 +608,7 @@ static final function Decode(
     while (Len-- > 0)
     {
         B = Src[Len];
+        // Acc = Acc | ((B << AccLen) & 0xFFFF); // @ALIGN-32-16.
         Acc = Acc | (B << AccLen);
         AccLen += 8;
         if (AccLen >= 15)
@@ -612,15 +620,13 @@ static final function Decode(
     }
     if (AccLen != 0)
     {
-        X[V++] = Acc;
+        X[V++] = Acc & 0xFFFF; // @ALIGN-32-16.
     }
 
     // X[0] = BitLength(X + 1, V - 1);
     // TODO: is there a faster way of doing this in UScript?
-    for (I = 1; I < X.Length; ++I)
-    {
-        XArr[I] = X[I];
-    }
+    XArr = X;
+    XArr.Remove(0, 1);
     X[0] = BitLength(XArr, V - 1);
 }
 
@@ -2012,9 +2018,6 @@ static final function Reduce(
     }
 }
 
-/*
- * TODO: does this work for i15? Used for i31 and i32 in BearSSL.
- */
 static final function string ToString(
     const out array<int> X
 )
@@ -2024,20 +2027,19 @@ static final function string ToString(
 
     if (X[0] == 0)
     {
-        return " 00000000 (0, 0)";
+        return "0000 (0, 0)";
     }
 
     Str = "";
-    for (K = (X[0] + 31) >>> 5; K > 0; --K)
+    for (K = (X[0] + 15) >>> 4; K > 0; --K)
     {
-        // TODO:
-        // printf(" %08lX", (unsigned long)x[k]);
-        Str @= ToHex(X[K]);
+        Str $= ToHex(X[K]);
+        if (K > 1)
+        {
+            Str @= "";
+        }
     }
-    // TODO:
-    // printf(" (%u, %u)", (unsigned)(x[0] >> 5), (unsigned)(x[0] & 31));
 
-    Str @= "(" $ X[0] >>> 5 $ "," @ X[0] & 31 $ ")";
-
+    Str @= "(" $ (X[0] >>> 4) $ "," @ (X[0] & 15) $ ")";
     return Str;
 }
