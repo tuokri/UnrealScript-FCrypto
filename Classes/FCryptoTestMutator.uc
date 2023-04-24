@@ -27,7 +27,7 @@
  * Utility mutator for running tests. Used to work around the issue
  * with mod commandlets not being found by VNGame.exe.
  */
-class FCryptoTestMutator extends ROMutator
+class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
 
 var(FCryptoTests) editconst const array<int> Ints_257871904;
@@ -36,6 +36,17 @@ var(FCryptoTests) editconst const array<int> Ints_683384335291162482276352519;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
 var(FCryptoTests) editconst const array<byte> Bytes_683384335291162482276352519;
 
+// Workaround for UScript not supporting nested arrays.
+struct PrimeWrapper
+{
+    var array<byte> P;
+};
+
+// Pre-generated "random" primes with GMP (see BearSSL test_math.c rand_prime()).
+var(FCryptoTests) editconst const array<PrimeWrapper> Primes;
+// Current index to `Primes` array.
+var(FCryptoTests) editconst int PrimeIndex;
+
 simulated event PostBeginPlay()
 {
     super.PostBeginPlay();
@@ -43,7 +54,7 @@ simulated event PostBeginPlay()
     TestMath();
 }
 
-final simulated function int StringsShouldEqual(string S1, string S2)
+private final simulated function int StringsShouldBeEqual(string S1, string S2)
 {
     if (S1 != S2)
     {
@@ -53,7 +64,7 @@ final simulated function int StringsShouldEqual(string S1, string S2)
     return 0;
 }
 
-final simulated function int BytesShouldEqual(
+private final simulated function int BytesShouldBeEqual(
     const out array<byte> B1,
     const out array<byte> B2
 )
@@ -62,7 +73,7 @@ final simulated function int BytesShouldEqual(
     return 0;
 }
 
-final simulated function LogBytes(const out array<byte> X)
+private final simulated function LogBytes(const out array<byte> X)
 {
     local int I;
     local string Str;
@@ -79,16 +90,41 @@ final simulated function LogBytes(const out array<byte> X)
     `fclog(Str);
 }
 
-simulated function TestMath()
+private final simulated function GetPrime(
+    out array<byte> Dst
+)
+{
+    Dst = Primes[PrimeIndex++].P;
+}
+
+// Similar to GMP's mpz_urandomm.
+// Generate a random integer in the range 0 to N-1, inclusive.
+private final simulated function RandomBigInt(
+    out array<byte> Dst,
+    const out array<byte> N
+)
+{
+    // TODO.
+}
+
+private final simulated function TestMath()
 {
     local float ClockTime;
     local float StartTime;
     local float StopTime;
     local array<int> X;
+    local array<byte> P;
+    local array<byte> A;
+    local array<byte> B;
+    local array<byte> V;
     local array<byte> XEncoded;
     local int XLen;
-    local string BigIntString;
     local int Failures;
+    local int K;
+    local int I;
+    local int Ctl;
+    local int MP0I;
+    local string BigIntString;
 
     StartTime = WorldInfo.RealTimeSeconds;
     Clock(ClockTime);
@@ -99,10 +135,10 @@ simulated function TestMath()
         Bytes_257871904.Length
     );
     BigIntString = class'BigInt'.static.ToString(X);
-    `fclog("257871904                   BigInt :" @ BigIntString);
-    // 00001EBD 00005020 (1, 13)
-    // 1EBD 5020 (1, 13)
-    Failures += StringsShouldEqual(
+    // `fclog("257871904                   BigInt :" @ BigIntString);
+    //     1EBD     5020 (1, 13) (BearSSL)
+    // 00001EBD 00005020 (1, 13) (UScript)
+    Failures += StringsShouldBeEqual(
         BigIntString,
         "00001EBD 00005020 (1, 13)"
     );
@@ -114,20 +150,33 @@ simulated function TestMath()
         Bytes_683384335291162482276352519.Length
     );
     BigIntString = class'BigInt'.static.ToString(X);
-    `fclog("683384335291162482276352519 BigInt :" @ BigIntString);
-    // 46A9 0430 62D7 1A7A 5DB9 4207 (5, 15)
-    // 000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15)
-    Failures += StringsShouldEqual(
+    // `fclog("683384335291162482276352519 BigInt :" @ BigIntString);
+    //     46A9     0430     62D7     1A7A     5DB9     4207 (5, 15) (BearSSL)
+    // 000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15) (UScript)
+    Failures += StringsShouldBeEqual(
         BigIntString,
         "000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15)"
     );
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'BigInt'.static.Encode(XEncoded, XLen, X);
-    LogBytes(XEncoded);
-    Failures += BytesShouldEqual(Bytes_683384335291162482276352519, XEncoded);
+    // LogBytes(XEncoded);
+    Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
     X.Length = 0;
     //                                     02 35 48 43 0C 5A E6 9E AE DC C2 07
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
+
+    for (K = 2; K <= 128; ++K)
+    {
+        for (I = 0; I < 10; ++I)
+        {
+            GetPrime(P);
+            RandomBigInt(A, P);
+            RandomBigInt(B, P);
+
+            // TODO: just pre-generate these?
+            // RandomBigInt(V, K + 60); // mpz_rrandomb
+        }
+    }
 
     StopTime = WorldInfo.RealTimeSeconds;
     UnClock(ClockTime);
@@ -147,6 +196,8 @@ simulated function TestMath()
 
 DefaultProperties
 {
+    PrimeIndex=0
+
     // mpz_t LE export format.
     Ints_257871904(0)=0x0F5E
     Ints_257871904(1)=0xD020
@@ -173,4 +224,6 @@ DefaultProperties
     Bytes_683384335291162482276352519( 9)=220 // 0xDC
     Bytes_683384335291162482276352519(10)=194 // 0xC2
     Bytes_683384335291162482276352519(11)=7   // 0x07
+
+    Primes(0)=(P=(0))
 }
