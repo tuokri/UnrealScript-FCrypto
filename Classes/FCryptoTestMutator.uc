@@ -81,8 +81,7 @@ final simulated function LogBytes(const out array<byte> X)
 
 simulated function TestMath()
 {
-    local float ClockStart;
-    local float ClockStop;
+    local float ClockTime;
     local float StartTime;
     local float StopTime;
     local array<int> X;
@@ -92,7 +91,7 @@ simulated function TestMath()
     local int Failures;
 
     StartTime = WorldInfo.RealTimeSeconds;
-    Clock(ClockStart);
+    Clock(ClockTime);
 
     class'BigInt'.static.Decode(
         X,
@@ -131,8 +130,8 @@ simulated function TestMath()
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
 
     StopTime = WorldInfo.RealTimeSeconds;
-    UnClock(ClockStop);
-    `fclog("Clock time :" @ ClockStop - ClockStart);
+    UnClock(ClockTime);
+    `fclog("Clock time :" @ ClockTime);
     `fclog("Time       :" @ StopTime - StartTime);
 
     if (Failures > 0)
