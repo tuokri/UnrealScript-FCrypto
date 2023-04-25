@@ -1,2 +1,7 @@
 *.code-workspace
 .vscode/
+
+.idea/
+
+*.pyc
+**/venv/
