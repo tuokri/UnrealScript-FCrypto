@@ -25,7 +25,13 @@
 
 /**
  * Utility mutator for running tests. Used to work around the issue
- * with mod commandlets not being found by VNGame.exe.
+ * with mod commandlets not being found by VNGame.exe. This library was
+ * developed against Rising Storm 2: Vietnam. Commandlets may work for
+ * other UE3/UDK builds/games.
+ *
+ * Run the tests with: Game.exe Level?mutator=FCrypto.FCryptoTestMutator [arguments]
+ * E.g.:
+ * VNGame.exe VNTE-Cuchi?mutator=FCrypto.FCryptoTestMutator -log -useunpublished -nostartupmovies
  */
 class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
@@ -35,6 +41,17 @@ var(FCryptoTests) editconst const array<int> Ints_683384335291162482276352519;
 
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
 var(FCryptoTests) editconst const array<byte> Bytes_683384335291162482276352519;
+
+// Run tests with a delay to allow the game to finish loading etc.
+// Overwrite with launch option ?TestDelay=FLOAT_VALUE.
+var(FCryptoTests) editconst float TestDelay;
+// Number of times to repeat all test suites in a loop.
+// Overwrite with launch option ?NumTestLoops=INT_VALUE.
+var(FCryptoTests) editconst int NumTestLoops;
+
+var(FCryptoTests) editconst float GlobalStartTime;
+var(FCryptoTests) editconst float GlobalStopTime;
+var(FCryptoTests) editconst float GlobalClock;
 
 // Workaround for UScript not supporting nested arrays.
 struct PrimeWrapper
@@ -47,11 +64,89 @@ var(FCryptoTests) editconst const array<PrimeWrapper> Primes;
 // Current index to `Primes` array.
 var(FCryptoTests) editconst int PrimeIndex;
 
+function InitMutator(string Options, out string ErrorMessage)
+{
+    local string TestDelayOption;
+    local string NumTestLoopsOption;
+
+    TestDelayOption = class'GameInfo'.static.ParseOption(Options, "TestDelay");
+    if (TestDelayOption != "")
+    {
+        TestDelay = float(TestDelayOption);
+        `fclog("Using TestDelay:" @ TestDelay);
+    }
+
+    NumTestLoopsOption = class'GameInfo'.static.ParseOption(Options, "NumTestLoops");
+    if (NumTestLoopsOption != "")
+    {
+        NumTestLoops = Max(1, Abs(int(NumTestLoopsOption)));
+        `fclog("Using NumTestLoops:" @ NumTestLoops);
+    }
+
+    super.InitMutator(Options, ErrorMessage);
+}
+
 simulated event PostBeginPlay()
 {
     super.PostBeginPlay();
+    SetTimer(TestDelay, False, nameof(RunTests));
+}
 
-    TestMath();
+private delegate int TestSuite();
+
+private final simulated function RunTest(
+    delegate<TestSuite> TestSuiteDelegate,
+    name TestSuiteName,
+    int Iteration
+)
+{
+    local float ClockTime;
+    local float StartTime;
+    local float StopTime;
+    local int Failures;
+
+    `fclog("--- RUNNING" @ TestSuiteName @ "(" $ Iteration $ ")" @ "---");
+
+    // StartTime = WorldInfo.RealTimeSeconds;
+    ClockTime = 0;
+    Clock(ClockTime);
+
+    Failures = TestSuiteDelegate();
+
+    // StopTime = WorldInfo.RealTimeSeconds;
+    UnClock(ClockTime);
+    `fclog("Clock time :" @ ClockTime * 1000);
+    // `fclog("Time       :" @ StopTime - StartTime);
+
+    if (Failures > 0)
+    {
+        `fcerror("---" @ Failures @ "FAILED CHECKS ---");
+        `warn("---" @ TestSuiteName @ "TEST SUITE FAILED ---");
+    }
+    else
+    {
+        `fclog("--- ALL" @ TestSuiteName @ "TESTS PASSED SUCCESSFULLY ---");
+    }
+}
+
+private final simulated function RunTests()
+{
+    local int I;
+
+    // GlobalStartTime = WorldInfo.RealTimeSeconds;
+    GlobalClock = 0.0;
+    Clock(GlobalClock);
+
+    for (I = 0; I < NumTestLoops; ++I)
+    {
+        RunTest(TestMath, nameof(TestMath), I);
+    }
+
+    UnClock(GlobalClock);
+    // GlobalStopTime = WorldInfo.RealTimeSeconds;
+
+    // `fclog("--- TOTAL TIME       :" @ GlobalStopTime - GlobalStartTime @ "---");
+    `fclog("--- TOTAL CLOCK TIME :" @ GlobalClock @ "---");
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -94,7 +189,8 @@ private final simulated function GetPrime(
     out array<byte> Dst
 )
 {
-    Dst = Primes[PrimeIndex++].P;
+    Dst = Primes[PrimeIndex].P;
+    PrimeIndex = PrimeIndex % Primes.Length;
 }
 
 // Similar to GMP's mpz_urandomm.
@@ -107,11 +203,8 @@ private final simulated function RandomBigInt(
     // TODO.
 }
 
-private final simulated function TestMath()
+private final simulated function int TestMath()
 {
-    local float ClockTime;
-    local float StartTime;
-    local float StopTime;
     local array<int> X;
     local array<byte> P;
     local array<byte> A;
@@ -125,9 +218,6 @@ private final simulated function TestMath()
     local int Ctl;
     local int MP0I;
     local string BigIntString;
-
-    StartTime = WorldInfo.RealTimeSeconds;
-    Clock(ClockTime);
 
     class'BigInt'.static.Decode(
         X,
@@ -160,10 +250,10 @@ private final simulated function TestMath()
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'BigInt'.static.Encode(XEncoded, XLen, X);
     // LogBytes(XEncoded);
-    Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
-    X.Length = 0;
     //                                     02 35 48 43 0C 5A E6 9E AE DC C2 07
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
+    Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
+    X.Length = 0;
 
     for (K = 2; K <= 128; ++K)
     {
@@ -178,25 +268,14 @@ private final simulated function TestMath()
         }
     }
 
-    StopTime = WorldInfo.RealTimeSeconds;
-    UnClock(ClockTime);
-    `fclog("Clock time :" @ ClockTime);
-    `fclog("Time       :" @ StopTime - StartTime);
-
-    if (Failures > 0)
-    {
-        `fcerror("---" @ Failures @ "FAILED CHECKS ---");
-        `warn("---" @ nameof(TestMath) @ "TEST SUITE FAILED ---");
-    }
-    else
-    {
-        `fclog("--- ALL" @ nameof(TestMath) @ "TESTS PASSED SUCCESSFULLY ---");
-    }
+    return Failures;
 }
 
 DefaultProperties
 {
     PrimeIndex=0
+    TestDelay=5.0
+    GlobalClock=0.0
 
     // mpz_t LE export format.
     Ints_257871904(0)=0x0F5E
