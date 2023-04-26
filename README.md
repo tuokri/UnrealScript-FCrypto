@@ -39,8 +39,14 @@ design is necessary if you plan on using this feature.
 UnrealScript only has 32-bit integers, whereas BearSSL i15 big integers use
 uint16_t* as the underlying type. This UScript implementation is therefore
 essentially wasting half of the memory space. This should however be negligible
-for any modern system running UE3 games or servers. The integers can also still
-be encoded into a a byte array format that does not waste memory.
+for any modern system running UE3 games or servers. For export, the integers
+can be encoded into a a byte array format that does not waste memory. Various
+places in the code have additional checks to ensure the results are not altered,
+notably when writing UScript 32-bit integers into (originally) 16-bit variables
+in the BearSSL version e.g.:
+```UnrealScript
+X[V++] = Acc & 0xFFFF; // @ALIGN-32-16.
+````
 
 ### Key Exchange
 
