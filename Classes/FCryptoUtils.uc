@@ -23,22 +23,21 @@
  * SOFTWARE.
  */
 
-/*
- * Run tests with:'VNGame.exe FCrypto.BigIntTestCommandlet'.
- * The script package has to be brewed with 'VNEditor.exe BrewContent FCrypto'
- * first for the game executable to be able to find the commandlet.
- *
- * TODO: DOES NOT WORK ATM, THE COMMANDLET IS NOT RAN FOR SOME REASON!
- */
-class BigIntTestCommandlet extends Commandlet;
+class FCryptoUtils extends Object
+    notplaceable;
 
-event int Main(string Params)
-{
-    `fclog("Executing BigInt tests...");
-    return 0;
-}
+var private int Year;
+var private int Month;
+var private int DayOfWeek;
+var private int Day;
+var private int Hour;
+var private int Min;
+var private int Sec;
+var private int MSec;
 
-DefaultProperties
+// Warning: only takes MSec, Sec, Min and Hour into account.
+simulated final function float GetSystemTimeStamp()
 {
-    LogToConsole=True
+    GetSystemTime(Year, Month, DayOfWeek, Day, Hour, Min, Sec, MSec);
+    return (Hour * 3600) + (Min * 60) + Sec + (MSec / 1000);
 }

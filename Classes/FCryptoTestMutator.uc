@@ -36,6 +36,8 @@
 class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
 
+var private FCryptoUtils Utils;
+
 var(FCryptoTests) editconst const array<int> Ints_257871904;
 var(FCryptoTests) editconst const array<int> Ints_683384335291162482276352519;
 
@@ -84,12 +86,21 @@ function InitMutator(string Options, out string ErrorMessage)
     }
 
     super.InitMutator(Options, ErrorMessage);
+
+    if (TestDelay > 0)
+    {
+        SetTimer(TestDelay, False, nameof(RunTests));
+    }
+    else
+    {
+        RunTests();
+    }
 }
 
-simulated event PostBeginPlay()
+simulated event PreBeginPlay()
 {
-    super.PostBeginPlay();
-    SetTimer(TestDelay, False, nameof(RunTests));
+    Utils = new (self) class'FCryptoUtils';
+    super.PreBeginPlay();
 }
 
 private delegate int TestSuite();
@@ -101,8 +112,8 @@ private final simulated function RunTest(
 )
 {
     local float ClockTime;
-    local float StartTime;
-    local float StopTime;
+    // local float StartTime;
+    // local float StopTime;
     local int Failures;
 
     `fclog("--- RUNNING" @ TestSuiteName @ "(" $ Iteration $ ")" @ "---");
@@ -116,6 +127,8 @@ private final simulated function RunTest(
     // StopTime = WorldInfo.RealTimeSeconds;
     UnClock(ClockTime);
     `fclog("Clock time :" @ ClockTime * 1000);
+    `fclog("Clock time :" @ ClockTime * 1000000);
+    `fclog("Clock time :" @ ClockTime * 1000000000);
     // `fclog("Time       :" @ StopTime - StartTime);
 
     if (Failures > 0)
@@ -133,19 +146,20 @@ private final simulated function RunTests()
 {
     local int I;
 
-    // GlobalStartTime = WorldInfo.RealTimeSeconds;
+    GlobalStartTime = Utils.GetSystemTimeStamp();
     GlobalClock = 0.0;
     Clock(GlobalClock);
 
     for (I = 0; I < NumTestLoops; ++I)
     {
+        `fclog(Utils.GetSystemTimeStamp());
         RunTest(TestMath, nameof(TestMath), I);
     }
 
     UnClock(GlobalClock);
-    // GlobalStopTime = WorldInfo.RealTimeSeconds;
+    GlobalStopTime = Utils.GetSystemTimeStamp();
 
-    // `fclog("--- TOTAL TIME       :" @ GlobalStopTime - GlobalStartTime @ "---");
+    `fclog("--- TOTAL TIME       :" @ (GlobalStopTime - GlobalStartTime) @ "---");
     `fclog("--- TOTAL CLOCK TIME :" @ GlobalClock @ "---");
 }
 
@@ -219,12 +233,12 @@ private final simulated function int TestMath()
     local int MP0I;
     local string BigIntString;
 
-    class'BigInt'.static.Decode(
+    class'FCryptoBigInt'.static.Decode(
         X,
         Bytes_257871904,
         Bytes_257871904.Length
     );
-    BigIntString = class'BigInt'.static.ToString(X);
+    BigIntString = class'FCryptoBigInt'.static.ToString(X);
     // `fclog("257871904                   BigInt :" @ BigIntString);
     //     1EBD     5020 (1, 13) (BearSSL)
     // 00001EBD 00005020 (1, 13) (UScript)
@@ -234,12 +248,12 @@ private final simulated function int TestMath()
     );
     X.Length = 0;
 
-    class'BigInt'.static.Decode(
+    class'FCryptoBigInt'.static.Decode(
         X,
         Bytes_683384335291162482276352519,
         Bytes_683384335291162482276352519.Length
     );
-    BigIntString = class'BigInt'.static.ToString(X);
+    BigIntString = class'FCryptoBigInt'.static.ToString(X);
     // `fclog("683384335291162482276352519 BigInt :" @ BigIntString);
     //     46A9     0430     62D7     1A7A     5DB9     4207 (5, 15) (BearSSL)
     // 000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15) (UScript)
@@ -248,7 +262,7 @@ private final simulated function int TestMath()
         "000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15)"
     );
     XLen = ((X[0] + 15) & ~15) >>> 2;
-    class'BigInt'.static.Encode(XEncoded, XLen, X);
+    class'FCryptoBigInt'.static.Encode(XEncoded, XLen, X);
     // LogBytes(XEncoded);
     //                                     02 35 48 43 0C 5A E6 9E AE DC C2 07
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
@@ -274,8 +288,14 @@ private final simulated function int TestMath()
 DefaultProperties
 {
     PrimeIndex=0
-    TestDelay=5.0
+    TestDelay=0.0
     GlobalClock=0.0
+
+    TickGroup=TG_DuringAsyncWork
+    TickFrequency=0
+
+    Begin Object Class=FCryptoUtils Name=Utils
+    End Object
 
     // mpz_t LE export format.
     Ints_257871904(0)=0x0F5E

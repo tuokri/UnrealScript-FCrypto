@@ -34,7 +34,7 @@
  *
  * TODO: Implement OOP style BigInt in addition to C-style version?
  */
-class BigInt extends Object
+class FCryptoBigInt extends Object
     abstract
     notplaceable;
 
