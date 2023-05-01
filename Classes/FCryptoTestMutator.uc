@@ -203,18 +203,92 @@ private final simulated function GetPrime(
     out array<byte> Dst
 )
 {
-    Dst = Primes[PrimeIndex].P;
+    Dst = Primes[PrimeIndex++].P;
     PrimeIndex = PrimeIndex % Primes.Length;
 }
 
-// Similar to GMP's mpz_urandomm.
-// Generate a random integer in the range 0 to N-1, inclusive.
+// "Similar" to GMP's mpz_urandomm.
+// Generate a random integer in the range 0 to N-1, inclusive(?).
+// This is actually probably a quite bad PRNG, but good enough
+// for testing purposes. I hope. Horribly inefficient though.
 private final simulated function RandomBigInt(
     out array<byte> Dst,
     const out array<byte> N
 )
 {
-    // TODO.
+    local int Ctl;
+    local int I;
+    local int Rounds;
+    local array<int> BigIntCheck;
+    local array<int> BigIntN;
+    // local string BigIntNString;
+
+    class'FCryptoBigInt'.static.Decode(BigIntN, N, N.Length);
+    // BigIntNString = class'FCryptoBigInt'.static.ToString(BigIntN);
+
+    // TODO: should probably check whether N is 0?
+
+    if (N.Length == 0)
+    {
+        Dst.Length = 1;
+        Dst[0] = 0;
+        return;
+    }
+
+    // Do at most (N.Length) rounds.
+    Rounds = Rand(N.Length);
+    // `fclog("*** Rounds :" @ Rounds);
+
+    if (Rounds == 0)
+    {
+        Dst.Length = 1;
+        Dst[0] = Rand(N[0]);
+
+        // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, 1);
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+
+        return;
+    }
+
+    Dst.Length = 0;
+    for (I = 0; I <= Rounds; ++I)
+    {
+        Ctl = 0;
+        Dst[I] = Rand(256);
+
+        // Convert Dst to a BigInt for checking whether it's
+        // less or greater than BigIntN.
+        BigIntCheck.Length = 0;
+        class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
+
+        // `fclog("---");
+        // `fclog("Dst Bytes:");
+        // LogBytes(Dst);
+        // `fclog("BigIntN     :" @ BigIntNString);
+        // `fclog("N   Bytes:");
+        // LogBytes(N);
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+
+        // TODO: we can probably skip this check until I == Rounds?
+        Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
+        // `fclog("Ctl         :" @ Ctl);
+        // `fclog("I           :" @ I);
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+
+        // Went above, drop top byte and call it good. There's probably
+        // a better method, like re-randomizing the top byte?
+        if (Ctl == 0)
+        {
+            Dst.Remove(0, 1);
+
+            // BigIntCheck.Length = 0;
+            // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
+            // `fclog("final       :");
+            // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+
+            return;
+        }
+    }
 }
 
 private final simulated function int TestMath()

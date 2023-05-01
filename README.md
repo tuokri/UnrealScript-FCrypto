@@ -37,7 +37,7 @@ design is necessary if you plan on using this feature.
 #### Implementation Notes
 
 UnrealScript only has 32-bit integers, whereas BearSSL i15 big integers use
-uint16_t* as the underlying type. This UScript implementation is therefore
+`uint16_t*` as the underlying type. This UScript implementation is therefore
 essentially wasting half of the memory space. This should however be negligible
 for any modern system running UE3 games or servers. For export, the integers
 can be encoded into a a byte array format that does not waste memory. Various
@@ -66,7 +66,9 @@ Elliptic Curve Diffie-Hellman Ephemeral.
 
 #### XXTEA
 
-XXTEA with PKCS #7.
+XXTEA with PKCS #7. Included in the library due to simplicity of the implementation.
+XXTEA is theoretically vulnerable, but used for being lightweight and secure enough
+for non-critical data.
 
 ### Hash Functions
 

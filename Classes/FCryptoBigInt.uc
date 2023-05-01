@@ -419,7 +419,7 @@ static final function int Sub(
         Bw = B[U];
         Naw = Aw - Bw - Cc;
         CC = Naw >>> 31;
-        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw);
+        A[U] = (MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF); // @ALIGN-32-16.
     }
 
     return Cc;
@@ -2027,7 +2027,7 @@ static final function string ToString(
 
     if (X[0] == 0)
     {
-        return "0000 (0, 0)";
+        return "00000000 (0, 0)";
     }
 
     Str = "";
