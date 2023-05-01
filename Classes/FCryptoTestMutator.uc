@@ -36,6 +36,7 @@
 class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
 
+var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
 
 var(FCryptoTests) editconst const array<int> Ints_257871904;
@@ -86,6 +87,16 @@ function InitMutator(string Options, out string ErrorMessage)
     }
 
     super.InitMutator(Options, ErrorMessage);
+
+    GMPClient = Spawn(class'FCryptoGMPClient', self);
+    if (GMPClient == None)
+    {
+        `fcerror("failed to spawn GMPClient!");
+    }
+    else
+    {
+        GMPClient.ConnectToServer();
+    }
 
     if (TestDelay > 0)
     {
@@ -170,6 +181,8 @@ private final simulated function RunTests()
     {
         `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
     }
+
+    `fclog("queued operations:" @ GMPClient.GetNumQueuedOps());
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -235,7 +248,9 @@ private final simulated function int CheckEqz(
     return 1 - Good;
 }
 
-private final simulated function LogBytes(const out array<byte> X)
+private final simulated function string BytesToString(
+    const out array<byte> X
+)
 {
     local int I;
     local string Str;
@@ -249,7 +264,15 @@ private final simulated function LogBytes(const out array<byte> X)
             Str @= "";
         }
     }
-    `fclog(Str);
+
+    return Str;
+}
+
+private final simulated function LogBytes(
+    const out array<byte> X
+)
+{
+    `fclog(BytesToString(X));
 }
 
 private final simulated function GetPrime(
@@ -351,6 +374,17 @@ private final simulated function RandomBigInt(
     }
 }
 
+private final simulated function IntToBytes(
+    int I,
+    out array<byte> Bytes
+)
+{
+    Bytes[0] = I >>> 24;
+    Bytes[1] = I >>> 16;
+    Bytes[2] = I >>> 8;
+    Bytes[3] = I;
+}
+
 private final simulated function int TestMath()
 {
     local array<int> X;
@@ -359,6 +393,7 @@ private final simulated function int TestMath()
     local array<byte> B;
     local array<byte> V;
     local array<byte> XEncoded;
+    local array<byte> T1;
     local array<int> Mp;
     local array<int> Ma;
     local array<int> Mb;
@@ -407,6 +442,8 @@ private final simulated function int TestMath()
     Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
     X.Length = 0;
 
+    // IntToBytes(Utils.GetSystemTimeStamp(), T1);
+
     for (K = 2; K <= 128; ++K)
     {
         for (I = 0; I < 10; ++I)
@@ -443,6 +480,35 @@ private final simulated function int TestMath()
             Failures += CheckEqz(Ma, A);
             Failures += CheckEqz(Mb, B);
             Failures += CheckEqz(Mv, V);
+
+            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
+            Ctl = class'FCryptoBigInt'.static.Add(Ma, Mb, 1);
+            Ctl = Ctl | (class'FCryptoBigInt'.static.Sub(Ma, Mp, 0) ^ 1);
+            class'FCryptoBigInt'.static.Sub(Ma, Mp, Ctl);
+
+            // TODO: this does not work because it is blocking, we have to instead
+            // push this operation to a queue, which is processed in Tick().
+
+            // Begin transaction?
+            // Push numbers?
+            // End transaction?
+
+            // client.Begin();
+            // client.Var("name1", "value");
+            // client.Var("name2", "value");
+            // client.Var("name3", "value");
+            // client.Op("mpz_add", "name1", "name2");
+            // client.Op("mpz_mod", "name1", "name3");
+            // client.Eq("ma", "t1");
+            // client.End();
+
+            GMPClient.MpzAdd(BytesToString(A), BytesToString(B));
+            // GMPClient.MpzMod()
+            // GMPClient.SendTextX(BytesToString(B));
+            // mpz_add(t1, a, b);
+            // mpz_mod(t1, t1, p);
+            // Failures += Che ckEqz(Ma, T1);
         }
     }
 
