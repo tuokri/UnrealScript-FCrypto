@@ -299,6 +299,8 @@ private final simulated function int TestMath()
     local array<byte> B;
     local array<byte> V;
     local array<byte> XEncoded;
+    local array<int> Mp;
+    local array<int> Ma;
     local int XLen;
     local int Failures;
     local int K;
@@ -350,6 +352,16 @@ private final simulated function int TestMath()
             GetPrime(P);
             RandomBigInt(A, P);
             RandomBigInt(B, P);
+
+            class'FCryptoBigInt'.static.Decode(Mp, P, P.Length);
+            if (class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp) != 1)
+            {
+                `fclog("Decode error!");
+                `fclog("A bytes:");
+                LogBytes(A);
+                `fclog("Mp:" @ class'FCryptoBigInt'.static.ToString(Mp));
+                ++Failures;
+            }
 
             // TODO: just pre-generate these?
             // RandomBigInt(V, K + 60); // mpz_rrandomb
