@@ -258,8 +258,8 @@ private final simulated function RandomBigInt(
 
         // Convert Dst to a BigInt for checking whether it's
         // less or greater than BigIntN.
-        BigIntCheck.Length = 0;
-        class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
+        // BigIntCheck.Length = 0;
+        // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
 
         // `fclog("---");
         // `fclog("Dst Bytes:");
@@ -270,23 +270,30 @@ private final simulated function RandomBigInt(
         // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
 
         // TODO: we can probably skip this check until I == Rounds?
-        Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
+        // Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
         // `fclog("Ctl         :" @ Ctl);
         // `fclog("I           :" @ I);
         // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
 
-        // Went above, drop top byte and call it good. There's probably
-        // a better method, like re-randomizing the top byte?
-        if (Ctl == 0)
+        if (I >= Rounds)
         {
-            Dst.Remove(0, 1);
+            BigIntCheck.Length = 0;
+            class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
+            Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
 
-            // BigIntCheck.Length = 0;
-            // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
-            // `fclog("final       :");
-            // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+            // Went above, drop top byte and call it good. There's probably
+            // a better method, like re-randomizing the top byte?
+            if (Ctl == 0)
+            {
+                Dst.Remove(0, 1);
 
-            return;
+                // BigIntCheck.Length = 0;
+                // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
+                // `fclog("final       :");
+                // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+
+                return;
+            }
         }
     }
 }
