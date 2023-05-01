@@ -50,6 +50,33 @@ class FCryptoBigInt extends Object
 const SIZEOF_UINT16_T = 2;
 
 /**
+ * C-style memcmp operation.
+ * Offset is the number of bytes values
+ * to ignore from the beginning of S1.
+ */
+static final function int MemCmp_Bytes(
+    const out array<byte> S1,
+    const out array<byte> S2,
+    int N,
+    optional int Offset = 0
+)
+{
+    local int I;
+    local int S2Idx;
+
+    S2Idx = 0;
+    for (I = Offset; I < N; ++I)
+    {
+        if (S1[I] != S2[S2Idx++])
+        {
+            return I + 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
  * C-style memmove operation.
  * Offsets are the number of uint16_t values
  * to ignore from the beginning of each array.

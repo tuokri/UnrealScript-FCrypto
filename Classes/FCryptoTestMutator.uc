@@ -105,7 +105,7 @@ simulated event PreBeginPlay()
 
 private delegate int TestSuite();
 
-private final simulated function RunTest(
+private final simulated function int RunTest(
     delegate<TestSuite> TestSuiteDelegate,
     name TestSuiteName,
     int Iteration
@@ -140,12 +140,16 @@ private final simulated function RunTest(
     {
         `fclog("--- ALL" @ TestSuiteName @ "TESTS PASSED SUCCESSFULLY ---");
     }
+
+    return Failures;
 }
 
 private final simulated function RunTests()
 {
     local int I;
+    local int Failures;
 
+    Failures = 0;
     GlobalStartTime = Utils.GetSystemTimeStamp();
     GlobalClock = 0.0;
     Clock(GlobalClock);
@@ -153,7 +157,7 @@ private final simulated function RunTests()
     for (I = 0; I < NumTestLoops; ++I)
     {
         `fclog(Utils.GetSystemTimeStamp());
-        RunTest(TestMath, nameof(TestMath), I);
+        Failures += RunTest(TestMath, nameof(TestMath), I);
     }
 
     UnClock(GlobalClock);
@@ -161,6 +165,11 @@ private final simulated function RunTests()
 
     `fclog("--- TOTAL TIME       :" @ (GlobalStopTime - GlobalStartTime) @ "---");
     `fclog("--- TOTAL CLOCK TIME :" @ GlobalClock @ "---");
+
+    if (Failures > 0)
+    {
+        `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
+    }
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -178,8 +187,52 @@ private final simulated function int BytesShouldBeEqual(
     const out array<byte> B2
 )
 {
-    // TODO: check test_match.c check_eqz().
+    // TODO: check test_match.c check_eqz()?
     return 0;
+}
+
+// Compare BigInt and GMP exported bytes.
+// See: BearSSL test_match.c check_eqz().
+private final simulated function int CheckEqz(
+    const out array<int> X,
+    const out array<byte> Z
+)
+{
+    local int XLen;
+    local int ZLen;
+    local int Good;
+    local int U;
+    local array<byte> Xb;
+
+    XLen = ((X[0] + 15) & ~15) >>> 2;
+    class'FCryptoBigInt'.static.Encode(Xb, XLen, X);
+    Good = 1;
+    ZLen = Z.Length;
+    if (XLen < ZLen)
+    {
+        Good = 0;
+    }
+    else if (XLen > ZLen)
+    {
+        for (U = XLen; U > ZLen; --U)
+        {
+            if (Xb[XLen - U] != 0)
+            {
+                Good = 0;
+                break;
+            }
+        }
+    }
+    Good = int(bool(Good) && (class'FCryptoBigInt'.static.MemCmp_Bytes(
+        Xb, Z, ZLen, XLen + ZLen) == 0));
+    if (!bool(Good))
+    {
+        `fcwarn("Mismatch:");
+        LogBytes(Xb);
+        LogBytes(Z);
+    }
+
+    return 1 - Good;
 }
 
 private final simulated function LogBytes(const out array<byte> X)
@@ -235,7 +288,7 @@ private final simulated function RandomBigInt(
         return;
     }
 
-    // Do at most (N.Length) rounds.
+    // Do at most (N.Length - 1) rounds.
     Rounds = Rand(N.Length);
     // `fclog("*** Rounds :" @ Rounds);
 
@@ -308,6 +361,8 @@ private final simulated function int TestMath()
     local array<byte> XEncoded;
     local array<int> Mp;
     local array<int> Ma;
+    local array<int> Mb;
+    local array<int> Mv;
     local int XLen;
     local int Failures;
     local int K;
@@ -359,6 +414,8 @@ private final simulated function int TestMath()
             GetPrime(P);
             RandomBigInt(A, P);
             RandomBigInt(B, P);
+            // TODO: just pre-generate these?
+            // RandomBigInt(V, K + 60); // mpz_rrandomb
 
             class'FCryptoBigInt'.static.Decode(Mp, P, P.Length);
             if (class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp) != 1)
@@ -370,8 +427,22 @@ private final simulated function int TestMath()
                 ++Failures;
             }
 
-            // TODO: just pre-generate these?
-            // RandomBigInt(V, K + 60); // mpz_rrandomb
+            MP0I = class'FCryptoBigInt'.static.NInv15(Mp[1]);
+            if (class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp) != 1)
+            {
+                `fclog("Decode error!");
+                `fclog("B bytes:");
+                LogBytes(B);
+                `fclog("Mp:" @ class'FCryptoBigInt'.static.ToString(Mp));
+                `fclog("MP0I:" @ MP0I);
+                ++Failures;
+            }
+
+            class'FCryptoBigInt'.static.Decode(Mv, V, V.Length);
+            Failures += CheckEqz(Mp, P);
+            Failures += CheckEqz(Ma, A);
+            Failures += CheckEqz(Mb, B);
+            Failures += CheckEqz(Mv, V);
         }
     }
 
