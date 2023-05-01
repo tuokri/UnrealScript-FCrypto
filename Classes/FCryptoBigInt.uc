@@ -78,8 +78,10 @@ private static final function MemMove(
     while (ByteIndex < NumBytes)
     {
         DstBytes[ByteIndex++] = (Src[IntIndex] >>> Shift) & 0xff;
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
     }
 
     /*
@@ -93,8 +95,10 @@ private static final function MemMove(
         Dst[IntIndex] = (
             (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
         );
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
         Mask = 0xff << Shift;
     }
 }
@@ -122,8 +126,10 @@ private static final function MemSet_UInt16(
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
     {
         S[IntIndex] = (S[IntIndex] & ~Mask) | ((C & 0xff) << Shift);
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
         Mask = 0xff << Shift;
     }
 }
@@ -192,8 +198,10 @@ private static final function CCOPY(
     while (ByteIndex < Len)
     {
         SrcBytes[ByteIndex++] = (Src[IntIndex] >>> Shift) & 0xff;
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
     }
 
     IntIndex = 0;
@@ -202,8 +210,10 @@ private static final function CCOPY(
     while (ByteIndex < Len)
     {
         DstBytes[ByteIndex++] = (Dst[IntIndex] >>> Shift) & 0xff;
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
     }
 
     I = 0;
@@ -229,8 +239,10 @@ private static final function CCOPY(
         Dst[IntIndex] = (
             (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
         );
-        Shift = (Shift + 8) % 16;
-        IntIndex += ByteIndex % 2;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
         Mask = 0xff << Shift;
     }
 }
