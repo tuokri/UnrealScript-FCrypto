@@ -39,7 +39,6 @@ class FCryptoGMPClient extends TcpLink;
 
 var private int ClientPort;
 
-var private array<string> QueuedOperations;
 var private array<string> Responses;
 
 var private int TransactionID;
@@ -126,6 +125,7 @@ simulated event Tick(float DeltaTime)
             `fcwarn("R_TID                       :" @ R_TID);
             `fcwarn("R_Result                    :" @ R_Result);
             `fcwarn("R_GMPOperandName            :" @ R_GMPOperandName);
+            `fcwarn("Response                    :" @ Responses[I]);
             Failures += Fail;
         }
 
@@ -171,11 +171,6 @@ final simulated function ConnectToServer()
     InLineMode = LMODE_UNIX;
     OutLineMode = LMODE_UNIX;
     Resolve(TargetHost);
-}
-
-final simulated function int GetNumQueuedOps()
-{
-    return QueuedOperations.Length;
 }
 
 final simulated function Begin()

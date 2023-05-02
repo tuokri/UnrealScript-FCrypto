@@ -179,8 +179,6 @@ private final simulated function RunTests()
     {
         `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
     }
-
-    `fclog("queued operations:" @ GMPClient.GetNumQueuedOps());
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -453,16 +451,16 @@ private final simulated function int TestMath()
     // We'll do some bare minimum allocations here to avoid issues.
     // TODO: does UScript dynamic array allocation break CT guarantees?
     // It most probably does. Is there an easy way to avoid it?
-    // P.Length = 4;
-    // A.Length = 4;
-    // B.Length = 4;
-    // V.Length = 4;
-    // Mp.Length = 4;
-    // Ma.Length = 4;
-    // Mb.Length = 4;
-    // Mv.Length = 4;
+    P.Length = 4;
+    A.Length = 4;
+    B.Length = 4;
+    V.Length = 4;
+    Mp.Length = 4;
+    Ma.Length = 4;
+    Mb.Length = 4;
+    Mv.Length = 4;
     // TODO: THE ABOVE DOES NOT ACTUALLY WORK SINCE WE USE ARRAY.LENGTH
-    // IN THE TESTS BELOW.
+    // IN THE TESTS BELOW. TODO: OR DOES IT????
 
     class'FCryptoBigInt'.static.Decode(
         X,
@@ -586,6 +584,8 @@ private final simulated function int TestMath()
             GMPClient.Eq("T1", Ma);
             GMPClient.End();
 
+            `fclog("V.Length :" @ V.Length);
+            `fclog("V Bytes  :" @ BytesToString(V));
             class'FCryptoBigInt'.static.DecodeReduce(Ma, V, V.Length, Mp);
             GMPClient.Begin();
             GMPClient.Var("T1", "");

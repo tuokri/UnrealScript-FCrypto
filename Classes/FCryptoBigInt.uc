@@ -720,10 +720,10 @@ static final function DecodeReduce(
     M_RBitLen = M_EBitLen >>> 4;
     M_RBitLen = (M_EBitLen & 15) + (M_RBitLen << 4) - M_RBitLen;
     MBLen = (M_RBitLen + 7) >>> 3;
-    K = MBLen -1;
+    K = MBLen - 1;
     if (K >= Len)
     {
-        Decode(X, Src, K);
+        Decode(X, Src, Len);
         X[0] = M_EBitLen;
         return;
     }
@@ -745,7 +745,8 @@ static final function DecodeReduce(
         {
             MulAddSmall(X, Acc >>> (AccLen - 15), M);
             AccLen -= 15;
-            Acc = Acc & (~(-1 << AccLen));
+            // Acc = Acc & (~(-1 << AccLen));
+            Acc = Acc & (~(0xffffffff << AccLen));
         }
     }
 
@@ -851,7 +852,7 @@ static final function MulAddSmall(
         A0 = X[MLen];
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
         MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
-        X[1] = Z;
+        X[1] = Z & 0xFFFF; // @ALIGN-32-16.
         A = (A0 << 15) + X[MLen];
         B = M[MLen];
     }
@@ -860,10 +861,10 @@ static final function MulAddSmall(
         A0 = (X[MLen] << (15 - MBlr)) | (X[MLen - 1] >>> MBlr);
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
         MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
-        X[1] = Z;
+        X[1] = Z & 0xFFFF; // @ALIGN-32-16.
         A = (A0 << 15) | (((X[MLen] << (15 - MBlr))
             | (X[MLen - 1] >>> MBlr)) & 0x7FFF);
-        B = (M[MLen] << (15 - MBlr)) | (M[MLen - 1] >> MBlr);
+        B = (M[MLen] << (15 - MBlr)) | (M[MLen - 1] >>> MBlr);
     }
     Q = DivRem16(A, B,);
 
@@ -1670,7 +1671,7 @@ static final function ModPow(
     X[1] = 1;
     for (K = 0; K < (ELen << 3); ++K)
     {
-        Ctl = (E[ELen - 1 - (K >>> 3)] >> (K & 7)) & 1;
+        Ctl = (E[ELen - 1 - (K >>> 3)] >>> (K & 7)) & 1;
         MontyMul(T2, X, T1, M, M0I);
         CCOPY(Ctl, X, T2, MLen);
         MontyMul(T2, T1, T1, M, M0I);
@@ -2038,7 +2039,7 @@ static final function Reduce(
     M_BitLen = M[0];
     MLen = (M_BitLen + 15) >>> 4;
 
-    X[0] = M_BitLen & 0xFFFF; // @ALIGN-32-16. // TODO: needed?
+    X[0] = M_BitLen;
     if (M_BitLen == 0)
     {
         return;

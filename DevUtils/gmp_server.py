@@ -1,5 +1,6 @@
 import re
 import socketserver
+import sys
 from typing import Dict
 from typing import List
 
@@ -21,10 +22,10 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         while True:
             self.data = self.rfile.readline().strip()
 
-            if not self.data:
+            cmd_data = self.data.decode("utf-8")
+            if not cmd_data.strip():
                 break
 
-            cmd_data = self.data.decode("utf-8")
             if match := id_regex.match(cmd_data):
                 t_id = match.group(1)
             else:
@@ -84,6 +85,9 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
             #             "utf-8",
             #         )
             #     )
+
+        print("done\n\n")
+        sys.stdout.flush()
 
 
 class TCPServer(socketserver.TCPServer):
