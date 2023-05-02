@@ -572,7 +572,7 @@ DefaultProperties
 
     Bytes_0(0)=0
 
-    // mpz_t LE export format.
+    // GMP mpz big endian export format.
     Bytes_257871904(0)=15  // 0x0F
     Bytes_257871904(1)=94  // 0x5E
     Bytes_257871904(2)=208 // 0xD0
