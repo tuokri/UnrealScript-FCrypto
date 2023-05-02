@@ -22,6 +22,19 @@
  * SOFTWARE.
  */
 
+/*
+ * Test utility client to perform certain GMP mpz
+ * operations on a server and return the results.
+ * This is used because I'm too lazy to re-implement
+ * parts of GMP in UnrealScript. And it's faster and
+ * easier to do it this way, anyway.
+ *
+ * NOTE: it's recommended to run the dedicated server or
+ * game client with 60 or higher tick rate to make the client
+ * execute the tests faster.
+ *
+ * See: FCrypto/DevUtils/gmp_server.py for more details.
+ */
 class FCryptoGMPClient extends TcpLink;
 
 var private int ClientPort;
@@ -32,19 +45,125 @@ var private array<string> Responses;
 var private int TransactionID;
 var private array<string> TransactionStack;
 
+struct PendingCheck
+{
+    var int TransactionID;
+    var string GMPOperandName;
+    var array<int> BigIntOperand;
+};
+
+var private array<PendingCheck> PendingChecks;
+var private PendingCheck CurrentCheck;
+
 var string TargetHost;
 var int TargetPort;
 
-// simulated event Tick(float DeltaTime)
-// {
-//     if (QueuedOperations.Length > 0)
-//     {
-//         SendText(QueuedOperations[QueuedOperations.Length - 1]);
-//         QueuedOperations.Length = QueuedOperations.Length - 1;
-//     }
+var private array<string> R_Array;
+var private string R_TID;
+var private string R_GMPOperandName;
+var private string R_Result;
+var private array<byte> R_ResultBytes;
 
-//     super.Tick(DeltaTime);
-// }
+var private int Failures;
+var private int LastFailuresLogged;
+
+var private int ChecksDone;
+var private int RequiredChecks;
+
+simulated event Tick(float DeltaTime)
+{
+    local int I;
+    local int J;
+    local int K;
+    local int LenResult;
+    local string ByteS;
+    local int Fail;
+
+    for (I = 0; I < Responses.Length; ++I)
+    {
+        ParseStringIntoArray(Responses[I], R_Array, " ", False);
+        R_TID = R_Array[0];
+        R_GMPOperandName = R_Array[1]; // TODO: not needed?
+        R_Result = R_Array[2];
+
+        if (Len(R_Result) < 3)
+        {
+            R_ResultBytes.Length = 1;
+            R_ResultBytes[0] = class'WebAdminUtils'.static.FromHex(R_Result);
+        }
+        else
+        {
+            LenResult = Len(R_Result);
+            if ((LenResult % 2) != 0)
+            {
+                R_Result = "0" $ R_Result;
+                ++LenResult;
+            }
+            K = 0;
+            J = 0;
+            while (J < LenResult)
+            {
+                ByteS = Mid(R_Result, J, 2);
+                R_ResultBytes[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
+                J += 2;
+            }
+        }
+
+        // `fclog(Responses[I]);
+        // class'FCryptoTestMutator'.static.LogBytes(R_ResultBytes);
+
+        CurrentCheck = PendingChecks[0];
+
+        Fail = class'FCryptoTestMutator'.static.CheckEqz(
+            CurrentCheck.BigIntOperand,
+            R_ResultBytes
+        );
+
+        if (Fail > 0)
+        {
+            `fcwarn("CurrentCheck.TID            :" @ CurrentCheck.TransactionID);
+            `fcwarn("CurrentCheck.GMPOperandName :" @ CurrentCheck.GMPOperandName);
+            `fcwarn("R_TID                       :" @ R_TID);
+            `fcwarn("R_Result                    :" @ R_Result);
+            `fcwarn("R_GMPOperandName            :" @ R_GMPOperandName);
+            Failures += Fail;
+        }
+
+        PendingChecks.Remove(0, 1); // TODO: should do checks in a loop?
+        ++ChecksDone;
+    }
+
+    if (I > 0)
+    {
+        Responses.Remove(0, I);
+    }
+
+    if (Failures > 0 && LastFailuresLogged < (Failures - 1))
+    {
+        `fcwarn("---" @ Failures @ "FAILURES DETECTED! ---");
+        LastFailuresLogged = Failures;
+    }
+
+    if (ChecksDone > 0 && (ChecksDone % 25) == 0)
+    {
+        `fclog("---" @ ChecksDone @ "checks done so far. ---");
+    }
+
+    if (ChecksDone > 0 && (ChecksDone >= RequiredChecks))
+    {
+        `fclog("--- ALL CHECKS DONE" @ ChecksDone $ "/" $ RequiredChecks @ "---");
+        ChecksDone = 0;
+        RequiredChecks = 0;
+
+        if (Failures > 0 && LastFailuresLogged < (Failures - 1))
+        {
+            `fcwarn("---" @ Failures @ "FAILURES DETECTED! ---");
+            LastFailuresLogged = Failures;
+        }
+    }
+
+    super.Tick(DeltaTime);
+}
 
 final simulated function ConnectToServer()
 {
@@ -62,32 +181,46 @@ final simulated function int GetNumQueuedOps()
 
 final simulated function Begin()
 {
-    TransactionID++;
+    ++TransactionID;
 }
 
 final simulated function End()
 {
+    local string Str;
+    local int I;
+
     // Actually push the stuff here.
+    Str = "T" $ TransactionID;
+    for (I = 0; I < TransactionStack.Length; ++I)
+    {
+        Str @= "[" $ TransactionStack[I] $ "]";
+    }
+
+    // `fclog("sending" @ TransactionID);
+    SendText(Str);
+    TransactionStack.Length = 0;
 }
 
-final simulated function Var(string Name, string Value)
+final simulated function Var(string VarName, string Value)
 {
-
+    TransactionStack.AddItem("var" @ VarName @ "'" $ Value $ "'");
 }
 
-final simulated function Op(string Op, string A, string B)
+final simulated function Op(string Op, string Dst, string A, string B)
 {
-
+    TransactionStack.AddItem("op" @ Op @ Dst @ A @ B );
 }
 
-final simulated function Eq(string A, string B)
+final simulated function Eq(string GMPOperandName, const out array<int> B)
 {
+    local PendingCheck Check;
 
-}
+    Check.TransactionID = TransactionID;
+    Check.GMPOperandName = GMPOperandName;
+    Check.BigIntOperand = B;
 
-final simulated function MpzAdd(string A, string B)
-{
-    QueuedOperations.AddItem("mpz_add" @ "'" $ A $ "'" @ "'" $ B $ "'");
+    PendingChecks.AddItem(Check);
+    RequiredChecks = PendingChecks.Length;
 }
 
 event Resolved(IpAddr Addr)
@@ -119,12 +252,16 @@ event Opened()
 
 event ReceivedLine(string Line)
 {
-    `fclog(Line);
+    // `fclog(Line @ Responses.Length);
     Responses.AddItem(Line);
 }
 
 DefaultProperties
 {
+    ChecksDone=0
+    Failures=0
+    LastFailuresLogged=0
+
     TargetHost="127.0.0.1"
     TargetPort=65432
     TransactionID=0

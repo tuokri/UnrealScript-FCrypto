@@ -628,6 +628,9 @@ static final function int DecodeMod(
  * corresponding to the full 'len' bytes of the source are set.
  *
  * CT: value or length of x does not leak.
+ *
+ * TODO: SHOULD CHECK FOR Src.Length == 0?
+ * TODO: SHOULD CHECK FOR X.Length == 0?
  */
 static final function Decode(
     out array<int> X,
@@ -990,6 +993,16 @@ static final function Encode(
     XLen = (X[0] + 15) >>> 4;
     if (XLen == 0)
     {
+        // NOTE: BearSSL assumes all parameters are user-allocated.
+        // In UnrealScript we'll make an exception here to avoid a bug
+        // where MemSet is called with Len == 0. TODO: SHOULD WE DO THIS?
+        // Probably no way to avoid this since we are not dealing with
+        // pointers in UScript like original BearSSL code does.
+        if (Len == 0)
+        {
+            Len = 1;
+        }
+
         // memset(dst, 0, len);
         MemSet_Byte(Dst, 0, Len);
         return;
@@ -1467,6 +1480,9 @@ static final function int ModDiv(
     // V = B + Len;
     V = B;
     V.Remove(0, Len);
+
+    // TODO: Potential issues in UScript with
+    // memset when Len == 0.
 
     // memcpy(a, y + 1, len * sizeof *y);
     // memcpy(b, m + 1, len * sizeof *m);

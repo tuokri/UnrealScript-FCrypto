@@ -5,8 +5,15 @@
     `cond, \
     `if(`tag) name("FCrypto-" $ string(`tag)) `else 'FCrypto' `endif)
 
+`define fcslog(msg, cond, tag) \
+    `log(default.class.name $ "::" $ GetFuncName() $ "(): " $ `msg, \
+    `cond, \
+    `if(`tag) name("FCrypto-" $ string(`tag)) `else 'FCrypto' `endif)
+
 `define fcwarn(msg, cond) `fclog(`msg, `cond, 'WARNING')
 `define fcerror(msg, cond) `fclog(`msg, `cond, 'ERROR')
+
+`define fcswarn(msg, cond) `fcslog(`msg, `cond, 'WARNING')
 
 `ifdef(FCDEBUG)
     `define fcdebug(msg, cond) `fclog(`msg, `cond, 'DEBUG')

@@ -39,9 +39,7 @@ class FCryptoTestMutator extends Mutator
 var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
 
-var(FCryptoTests) editconst const array<int> Ints_257871904;
-var(FCryptoTests) editconst const array<int> Ints_683384335291162482276352519;
-
+var(FCryptoTests) editconst const array<byte> Bytes_0;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
 var(FCryptoTests) editconst const array<byte> Bytes_683384335291162482276352519;
 
@@ -206,9 +204,10 @@ private final simulated function int BytesShouldBeEqual(
 
 // Compare BigInt and GMP exported bytes.
 // See: BearSSL test_match.c check_eqz().
-private final simulated function int CheckEqz(
+static final simulated function int CheckEqz(
     const out array<int> X,
-    const out array<byte> Z
+    const out array<byte> Z,
+    optional string Msg = ""
 )
 {
     local int XLen;
@@ -216,13 +215,24 @@ private final simulated function int CheckEqz(
     local int Good;
     local int U;
     local array<byte> Xb;
+    local int Cmp;
 
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'FCryptoBigInt'.static.Encode(Xb, XLen, X);
     Good = 1;
     ZLen = Z.Length;
+
+    // UnrealScript NOTE: ZLen is 0 in BearSSL
+    // because mpz length is 0 for number 0. We have to
+    // adjust here to match the functionality.
+    if (ZLen == 1 && Z[0] == 0)
+    {
+        ZLen = 0;
+    }
+
     if (XLen < ZLen)
     {
+        `fcswarn("XLen < ZLen:" @ XLen @ ZLen);
         Good = 0;
     }
     else if (XLen > ZLen)
@@ -236,11 +246,12 @@ private final simulated function int CheckEqz(
             }
         }
     }
-    Good = int(bool(Good) && (class'FCryptoBigInt'.static.MemCmp_Bytes(
-        Xb, Z, ZLen, XLen + ZLen) == 0));
+    Cmp = class'FCryptoBigInt'.static.MemCmp_Bytes(
+        Xb, Z, ZLen, XLen + ZLen);
+    Good = int(bool(Good) && (Cmp == 0));
     if (!bool(Good))
     {
-        `fcwarn("Mismatch:");
+        `fcswarn("Mismatch:" @ "Cmp:" @ Cmp @ Msg);
         LogBytes(Xb);
         LogBytes(Z);
     }
@@ -248,8 +259,9 @@ private final simulated function int CheckEqz(
     return 1 - Good;
 }
 
-private final simulated function string BytesToString(
-    const out array<byte> X
+static final simulated function string BytesToString(
+    const out array<byte> X,
+    optional string Delimiter = " "
 )
 {
     local int I;
@@ -259,20 +271,20 @@ private final simulated function string BytesToString(
     for (I = 0; I < X.Length; ++I)
     {
         Str $= Right(ToHex(X[I]), 2);
-        if (I < X.Length - 1)
+        if (I < X.Length - 1 && Delimiter != "")
         {
-            Str @= "";
+            Str $= Delimiter;
         }
     }
 
     return Str;
 }
 
-private final simulated function LogBytes(
+static final simulated function LogBytes(
     const out array<byte> X
 )
 {
-    `fclog(BytesToString(X));
+    `fcslog(BytesToString(X));
 }
 
 private final simulated function GetPrime(
@@ -302,7 +314,14 @@ private final simulated function RandomBigInt(
     class'FCryptoBigInt'.static.Decode(BigIntN, N, N.Length);
     // BigIntNString = class'FCryptoBigInt'.static.ToString(BigIntN);
 
-    // TODO: should probably check whether N is 0?
+    if (N.Length == 1)
+    {
+        if (N[0] == 0)
+        {
+            Dst.Length = 1;
+            Dst[0] = 0;
+        }
+    }
 
     if (N.Length == 0)
     {
@@ -379,6 +398,15 @@ private final simulated function IntToBytes(
     out array<byte> Bytes
 )
 {
+    // TODO: this should probably not use more bytes
+    // than necessary. I.e. 0 should only use 1 byte?
+    if (I == 0)
+    {
+        Bytes.Length = 1;
+        Bytes[0] = 0;
+        return;
+    }
+
     Bytes[0] = I >>> 24;
     Bytes[1] = I >>> 16;
     Bytes[2] = I >>> 8;
@@ -392,8 +420,8 @@ private final simulated function int TestMath()
     local array<byte> A;
     local array<byte> B;
     local array<byte> V;
+    local array<byte> KArr;
     local array<byte> XEncoded;
-    local array<byte> T1;
     local array<int> Mp;
     local array<int> Ma;
     local array<int> Mb;
@@ -405,6 +433,31 @@ private final simulated function int TestMath()
     local int Ctl;
     local int MP0I;
     local string BigIntString;
+
+    // BearSSL assumes all operands caller-allocated.
+    // We'll do some bare minimum allocations here to avoid issues.
+    // TODO: does UScript dynamic array allocation break CT guarantees?
+    // It most probably does. Is there an easy way to avoid it?
+    P.Length = 4;
+    A.Length = 4;
+    B.Length = 4;
+    V.Length = 4;
+    Mp.Length = 4;
+    Ma.Length = 4;
+    Mb.Length = 4;
+    Mv.Length = 4;
+
+    class'FCryptoBigInt'.static.Decode(
+        X,
+        Bytes_0,
+        Bytes_0.Length
+    );
+    BigIntString = class'FCryptoBigInt'.static.ToString(X);
+    Failures += StringsShouldBeEqual(
+        BigIntString,
+        "00000000 (0, 0)"
+    );
+    X.Length = 0;
 
     class'FCryptoBigInt'.static.Decode(
         X,
@@ -442,8 +495,7 @@ private final simulated function int TestMath()
     Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
     X.Length = 0;
 
-    // IntToBytes(Utils.GetSystemTimeStamp(), T1);
-
+    KArr.Length = 4;
     for (K = 2; K <= 128; ++K)
     {
         for (I = 0; I < 10; ++I)
@@ -451,8 +503,12 @@ private final simulated function int TestMath()
             GetPrime(P);
             RandomBigInt(A, P);
             RandomBigInt(B, P);
-            // TODO: just pre-generate these?
-            // RandomBigInt(V, K + 60); // mpz_rrandomb
+
+            // TODO: mpz_rrandomb.
+            IntToBytes(K + 60, KArr);
+            RandomBigInt(V, KArr);
+            // `fclog("V Bytes:");
+            // LogBytes(V);
 
             class'FCryptoBigInt'.static.Decode(Mp, P, P.Length);
             if (class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp) != 1)
@@ -476,10 +532,10 @@ private final simulated function int TestMath()
             }
 
             class'FCryptoBigInt'.static.Decode(Mv, V, V.Length);
-            Failures += CheckEqz(Mp, P);
-            Failures += CheckEqz(Ma, A);
-            Failures += CheckEqz(Mb, B);
-            Failures += CheckEqz(Mv, V);
+            Failures += CheckEqz(Mp, P, "Mp != P");
+            Failures += CheckEqz(Ma, A, "Ma != A");
+            Failures += CheckEqz(Mb, B, "Mb != B");
+            Failures += CheckEqz(Mv, V, "Mv != V");
 
             class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
             class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
@@ -487,28 +543,15 @@ private final simulated function int TestMath()
             Ctl = Ctl | (class'FCryptoBigInt'.static.Sub(Ma, Mp, 0) ^ 1);
             class'FCryptoBigInt'.static.Sub(Ma, Mp, Ctl);
 
-            // TODO: this does not work because it is blocking, we have to instead
-            // push this operation to a queue, which is processed in Tick().
-
-            // Begin transaction?
-            // Push numbers?
-            // End transaction?
-
-            // client.Begin();
-            // client.Var("name1", "value");
-            // client.Var("name2", "value");
-            // client.Var("name3", "value");
-            // client.Op("mpz_add", "name1", "name2");
-            // client.Op("mpz_mod", "name1", "name3");
-            // client.Eq("ma", "t1");
-            // client.End();
-
-            GMPClient.MpzAdd(BytesToString(A), BytesToString(B));
-            // GMPClient.MpzMod()
-            // GMPClient.SendTextX(BytesToString(B));
-            // mpz_add(t1, a, b);
-            // mpz_mod(t1, t1, p);
-            // Failures += Che ckEqz(Ma, T1);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("A", BytesToString(A, ""));
+            GMPClient.Var("B", BytesToString(B, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Op("mpz_add", "T1", "A", "B");
+            GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
         }
     }
 
@@ -527,20 +570,14 @@ DefaultProperties
     Begin Object Class=FCryptoUtils Name=Utils
     End Object
 
+    Bytes_0(0)=0
+
     // mpz_t LE export format.
-    Ints_257871904(0)=0x0F5E
-    Ints_257871904(1)=0xD020
     Bytes_257871904(0)=15  // 0x0F
     Bytes_257871904(1)=94  // 0x5E
     Bytes_257871904(2)=208 // 0xD0
     Bytes_257871904(3)=32  // 0x20
 
-    Ints_683384335291162482276352519(0)=0x0235
-    Ints_683384335291162482276352519(1)=0x4843
-    Ints_683384335291162482276352519(2)=0x0C5A
-    Ints_683384335291162482276352519(3)=0xE69E
-    Ints_683384335291162482276352519(4)=0xAEDC
-    Ints_683384335291162482276352519(5)=0xC207
     Bytes_683384335291162482276352519( 0)=2   // 0x02
     Bytes_683384335291162482276352519( 1)=53  // 0x35
     Bytes_683384335291162482276352519( 2)=72  // 0x48

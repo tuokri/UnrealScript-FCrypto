@@ -1,1 +1,2 @@
-gmpy2
+gmpy2 @ git+https://github.com/aleaxit/gmpy@b87684339d91ca4f6795e92cdc53274d12b3caf0
+numpy
