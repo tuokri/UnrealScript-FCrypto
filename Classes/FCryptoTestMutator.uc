@@ -542,7 +542,6 @@ private final simulated function int TestMath()
             Ctl = class'FCryptoBigInt'.static.Add(Ma, Mb, 1);
             Ctl = Ctl | (class'FCryptoBigInt'.static.Sub(Ma, Mp, 0) ^ 1);
             class'FCryptoBigInt'.static.Sub(Ma, Mp, Ctl);
-
             GMPClient.Begin();
             GMPClient.Var("T1", "");
             GMPClient.Var("A", BytesToString(A, ""));
@@ -550,6 +549,42 @@ private final simulated function int TestMath()
             GMPClient.Var("P", BytesToString(P, ""));
             GMPClient.Op("mpz_add", "T1", "A", "B");
             GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
+
+            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            class'FCryptoBigInt'.static.DecodeMod(MB, B, B.Length, Mp);
+            class'FCryptoBigInt'.static.Add(
+                Ma,
+                Mp,
+                class'FCryptoBigInt'.static.Sub(Ma, Mb, 1)
+            );
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("A", BytesToString(A, ""));
+            GMPClient.Var("B", BytesToString(B, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Op("mpz_sub", "T1", "A", "B");
+            GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
+
+            class'FCryptoBigInt'.static.DecodeReduce(Ma, V, V.Length, Mp);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("V", BytesToString(V, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Op("mpz_mod", "T1", "V", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
+
+            class'FCryptoBigInt'.static.Decode(Ma, V, V.Length);
+            class'FCryptoBigInt'.static.Reduce(Ma, Mv, Mp);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("V", BytesToString(V, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Op("mpz_mod", "T1", "V", "P");
             GMPClient.Eq("T1", Ma);
             GMPClient.End();
         }

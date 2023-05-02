@@ -58,6 +58,9 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                     case "mpz_add":
                         mpz_vars[dst] = a + b
                         print(f"\t{op[1]} = {op[2]} + {op[3]} ({a} + {b})")
+                    case "mpz_sub":
+                        mpz_vars[dst] = a - b
+                        print(f"\t{op[1]} = {op[2]} - {op[3]} ({a} - {b})")
                     case "mpz_mod":
                         mpz_vars[dst] = a % b
                         print(f"\t{op[1]} = {op[2]} % {op[3]} ({a} % {b})")
