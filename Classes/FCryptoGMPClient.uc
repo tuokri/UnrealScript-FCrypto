@@ -155,10 +155,9 @@ simulated event Tick(float DeltaTime)
         ChecksDone = 0;
         RequiredChecks = 0;
 
-        if (Failures > 0 && LastFailuresLogged < (Failures - 1))
+        if (Failures > 0)
         {
             `fcwarn("---" @ Failures @ "FAILURES DETECTED! ---");
-            LastFailuresLogged = Failures;
         }
     }
 

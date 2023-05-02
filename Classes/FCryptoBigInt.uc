@@ -2038,7 +2038,7 @@ static final function Reduce(
     M_BitLen = M[0];
     MLen = (M_BitLen + 15) >>> 4;
 
-    X[0] = M_BitLen;
+    X[0] = M_BitLen & 0xFFFF; // @ALIGN-32-16. // TODO: needed?
     if (M_BitLen == 0)
     {
         return;
