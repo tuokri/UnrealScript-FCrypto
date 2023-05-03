@@ -586,7 +586,7 @@ static final function int DecodeMod(
                 {
                     if (bool(Pass))
                     {
-                        X[V] = R & Xw;
+                        X[V] = (R & Xw) & 0xFFFF; // @ALIGN-32-16.
                     }
                     else
                     {

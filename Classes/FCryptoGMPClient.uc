@@ -80,6 +80,14 @@ simulated event Tick(float DeltaTime)
 
     for (I = 0; I < Responses.Length; ++I)
     {
+        if (Responses[I] == "SERVER_ERROR")
+        {
+            `fcerror("SERVER ERROR!");
+            PendingChecks.Remove(0, 1); // TODO: should do checks in a loop?
+            ++ChecksDone;
+            ++Failures;
+        }
+
         ParseStringIntoArray(Responses[I], R_Array, " ", False);
         R_TID = R_Array[0];
         R_GMPOperandName = R_Array[1]; // TODO: not needed?

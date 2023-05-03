@@ -39,6 +39,8 @@ class FCryptoTestMutator extends Mutator
 var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
 
+const WORD_SIZE = 15;
+
 var(FCryptoTests) editconst const array<byte> Bytes_0;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
 var(FCryptoTests) editconst const array<byte> Bytes_683384335291162482276352519;
@@ -584,8 +586,6 @@ private final simulated function int TestMath()
             GMPClient.Eq("T1", Ma);
             GMPClient.End();
 
-            `fclog("V.Length :" @ V.Length);
-            `fclog("V Bytes  :" @ BytesToString(V));
             class'FCryptoBigInt'.static.DecodeReduce(Ma, V, V.Length, Mp);
             GMPClient.Begin();
             GMPClient.Var("T1", "");
@@ -595,15 +595,34 @@ private final simulated function int TestMath()
             GMPClient.Eq("T1", Ma);
             GMPClient.End();
 
-            // TODO: failing?
-            // class'FCryptoBigInt'.static.Decode(Ma, V, V.Length);
-            // class'FCryptoBigInt'.static.Reduce(Ma, Mv, Mp);
+            class'FCryptoBigInt'.static.Decode(Mv, V, V.Length);
+            class'FCryptoBigInt'.static.Reduce(Ma, Mv, Mp);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("V", BytesToString(V, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Op("mpz_mod", "T1", "V", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
+
+            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
             // GMPClient.Begin();
             // GMPClient.Var("T1", "");
-            // GMPClient.Var("V", BytesToString(V, ""));
+            // GMPClient.Var("A", BytesToString(A, ""));
             // GMPClient.Var("P", BytesToString(P, ""));
-            // GMPClient.Op("mpz_mod", "T1", "V", "P");
+            // // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
+            // GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
+            // GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
+            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
             // GMPClient.Eq("T1", Ma);
+            // GMPClient.End();
+
+            // class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
+            // GMPClient.Begin();
+            // GMPClient.Var("A", BytesToString(A, ""));
+            // GMPClient.Op("nop", "A", "A", "A");
+            // GMPClient.Eq("A", Ma);
             // GMPClient.End();
         }
     }
