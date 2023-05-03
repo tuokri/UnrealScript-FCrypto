@@ -392,7 +392,7 @@ static final function Zero(
     // *x ++ = bit_len;
     // memset(x, 0, ((bit_len + 15) >> 4) * sizeof *x);
     X[0] = BitLen;
-    MemSet_UInt16(X, 0, (BitLen + 15 >>> 4) * SIZEOF_UINT16_T);
+    MemSet_UInt16(X, 0, ((BitLen + 15) >>> 4) * SIZEOF_UINT16_T, 1);
 }
 
 /*
@@ -724,12 +724,12 @@ static final function DecodeReduce(
     if (K >= Len)
     {
         Decode(X, Src, Len);
-        X[0] = M_EBitLen;
+        X[0] = M_EBitLen & 0xFFFF; // @ALIGN-32-16.
         return;
     }
 
     Decode(X, Src, K);
-    X[0] = M_EBitLen;
+    X[0] = M_EBitLen & 0xFFFF; // @ALIGN-32-16.
 
     /*
      * Input remaining bytes, using 15-bit words.
@@ -813,7 +813,7 @@ static final function MulAddSmall(
     }
     if (M_BitLen <= 15)
     {
-        DivRem16(X[1] << 15 | Z, M[1], Rem);
+        DivRem16((X[1] << 15) | Z, M[1], Rem);
         X[1] = Rem;
         return;
     }
@@ -971,7 +971,7 @@ static final function RShift(
         X[U - 1] = ((W << (15 - Count)) | R) & 0x7FFF;
         R = W >>> Count;
     }
-    X[Len] = R;
+    X[Len] = R & 0xFFFF; // @ALIGN-32-16.
 }
 
 /*
