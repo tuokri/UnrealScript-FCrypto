@@ -81,7 +81,7 @@ static final function int MemCmp_Bytes(
  * Offsets are the number of uint16_t values
  * to ignore from the beginning of each array.
  */
-private static final function MemMove(
+static final function MemMove(
     out array<int> Dst,
     const out array<int> Src,
     int NumBytes,

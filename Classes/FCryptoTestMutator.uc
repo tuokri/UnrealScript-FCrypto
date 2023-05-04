@@ -40,6 +40,7 @@ var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
 
 const WORD_SIZE = 15;
+const SIZEOF_UINT16_T = 2;
 
 var(FCryptoTests) editconst const array<byte> Bytes_0;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
@@ -66,6 +67,30 @@ struct PrimeWrapper
 var(FCryptoTests) editconst const array<PrimeWrapper> Primes;
 // Current index to `Primes` array.
 var(FCryptoTests) editconst int PrimeIndex;
+
+// Generated dynamically at the beginning of each test run.
+var(FCryptoTests) editconst array<PrimeWrapper> RandomPrimes;
+// Current index to `RandomPrimes` array.
+var(FCryptoTests) editconst int RandomPrimeIndex;
+
+// Whether to use random or pre-generated prime array.
+var(FCryptoTests) editconst bool bUseRandomPrimes;
+
+var private bool bRandPrimesRequested;
+
+// Callback to FCryptoGMPClient::RandPrime.
+final simulated function AddRandomPrime(
+    const out array<byte> P
+)
+{
+    // `fclog(
+    //     "Idx:" @ RandomPrimeIndex
+    //     @ "Len:" @ RandomPrimes.Length
+    //     @ "P:" @ BytesToString(P)
+    // );
+    RandomPrimes.Length = RandomPrimes.Length + 1;
+    RandomPrimes[RandomPrimes.Length - 1].P = P;
+}
 
 function InitMutator(string Options, out string ErrorMessage)
 {
@@ -158,7 +183,35 @@ private final simulated function int RunTest(
 private final simulated function RunTests()
 {
     local int I;
+    local int K;
     local int Failures;
+
+    while (!GMPClient.IsConnected())
+    {
+        `fclog("GMPClient not connected, state:" @ GMPClient.LinkState);
+    }
+
+    if (!bRandPrimesRequested)
+    {
+        // RandomPrimes.Length = 1270;
+        GMPClient.RandPrimeDelegate = AddRandomPrime;
+        for (K = 2; K <= 128; ++K)
+        {
+            for (I = 0; I < 10; ++I)
+            {
+                GMPClient.RandPrime(K);
+            }
+        }
+        bRandPrimesRequested = True;
+    }
+
+    if (bRandPrimesRequested && (RandomPrimes.Length < 1270))
+    {
+        `fclog("RandomPrimes.Length:"
+            @ RandomPrimes.Length @ "checking again in 0.01...");
+        SetTimer(0.01, False, nameof(RunTests));
+        return;
+    }
 
     Failures = 0;
     GlobalStartTime = Utils.GetSystemTimeStamp();
@@ -168,6 +221,10 @@ private final simulated function RunTests()
     for (I = 0; I < NumTestLoops; ++I)
     {
         `fclog(Utils.GetSystemTimeStamp());
+        bUseRandomPrimes = bool(I % 2);
+        `fclog("bUseRandomPrimes:" @ bUseRandomPrimes);
+
+        Failures += RunTest(TestMemory, nameof(TestMemory), I);
         Failures += RunTest(TestMath, nameof(TestMath), I);
     }
 
@@ -193,19 +250,8 @@ private final simulated function int StringsShouldBeEqual(string S1, string S2)
     return 0;
 }
 
-private final simulated function int BytesShouldBeEqual(
-    const out array<byte> B1,
-    const out array<byte> B2
-)
-{
-    // TODO: check test_match.c check_eqz()?
-    return 0;
-}
-
-// Compare BigInt and GMP exported bytes.
-// See: BearSSL test_match.c check_eqz().
-static final simulated function int CheckEqz(
-    const out array<int> X,
+private static final simulated function int BytesShouldBeEqual(
+    const out array<byte> X,
     const out array<byte> Z,
     optional string Msg = ""
 )
@@ -214,11 +260,9 @@ static final simulated function int CheckEqz(
     local int ZLen;
     local int Good;
     local int U;
-    local array<byte> Xb;
     local int Cmp;
 
-    XLen = ((X[0] + 15) & ~15) >>> 2;
-    class'FCryptoBigInt'.static.Encode(Xb, XLen, X);
+    XLen = X.Length;
     Good = 1;
     ZLen = Z.Length;
 
@@ -239,7 +283,7 @@ static final simulated function int CheckEqz(
     {
         for (U = XLen; U > ZLen; --U)
         {
-            if (Xb[XLen - U] != 0)
+            if (X[XLen - U] != 0)
             {
                 Good = 0;
                 break;
@@ -247,16 +291,75 @@ static final simulated function int CheckEqz(
         }
     }
     Cmp = class'FCryptoBigInt'.static.MemCmp_Bytes(
-        Xb, Z, ZLen, XLen + ZLen);
+        X, Z, ZLen, XLen + ZLen);
     Good = int(bool(Good) && (Cmp == 0));
     if (!bool(Good))
     {
         `fcswarn("Mismatch:" @ "Cmp:" @ Cmp @ Msg);
-        LogBytes(Xb);
+        LogBytes(X);
         LogBytes(Z);
     }
 
     return 1 - Good;
+}
+
+// Compare BigInt and GMP exported bytes.
+// See: BearSSL test_match.c check_eqz().
+static final simulated function int CheckEqz(
+    const out array<int> X,
+    const out array<byte> Z,
+    optional string Msg = ""
+)
+{
+    local int XLen;
+    // local int ZLen;
+    // local int Good;
+    // local int U;
+    local array<byte> Xb;
+    // local int Cmp;
+
+    XLen = ((X[0] + 15) & ~15) >>> 2;
+    class'FCryptoBigInt'.static.Encode(Xb, XLen, X);
+    return BytesShouldBeEqual(Xb, Z, Msg);
+
+    // Good = 1;
+    // ZLen = Z.Length;
+
+    // // UnrealScript NOTE: ZLen is 0 in BearSSL
+    // // because mpz length is 0 for number 0. We have to
+    // // adjust here to match the functionality.
+    // if (ZLen == 1 && Z[0] == 0)
+    // {
+    //     ZLen = 0;
+    // }
+
+    // if (XLen < ZLen)
+    // {
+    //     `fcswarn("XLen < ZLen:" @ XLen @ ZLen);
+    //     Good = 0;
+    // }
+    // else if (XLen > ZLen)
+    // {
+    //     for (U = XLen; U > ZLen; --U)
+    //     {
+    //         if (Xb[XLen - U] != 0)
+    //         {
+    //             Good = 0;
+    //             break;
+    //         }
+    //     }
+    // }
+    // Cmp = class'FCryptoBigInt'.static.MemCmp_Bytes(
+    //     Xb, Z, ZLen, XLen + ZLen);
+    // Good = int(bool(Good) && (Cmp == 0));
+    // if (!bool(Good))
+    // {
+    //     `fcswarn("Mismatch:" @ "Cmp:" @ Cmp @ Msg);
+    //     LogBytes(Xb);
+    //     LogBytes(Z);
+    // }
+
+    // return 1 - Good;
 }
 
 static final simulated function string BytesToString(
@@ -285,6 +388,16 @@ static final simulated function LogBytes(
 )
 {
     `fcslog(BytesToString(X));
+}
+
+private final simulated function GetRandomPrime(
+    out array<byte> Dst
+)
+{
+    // `fclog("RandomPrimeIndex:" @ RandomPrimeIndex);
+    Dst = RandomPrimes[RandomPrimeIndex++].P;
+    RandomPrimeIndex = RandomPrimeIndex % RandomPrimes.Length;
+    // `fclog("Dst             :" @ BytesToString(Dst));
 }
 
 private final simulated function GetPrime(
@@ -428,6 +541,64 @@ private final simulated function IntToBytes(
     Bytes[3] = (I       ) & 0xFF;
 }
 
+static final simulated function BytesFromHex(
+    out array<byte> Dst,
+    string HexString
+)
+{
+    local int K;
+    local int J;
+    local int LenStr;
+    local string ByteS;
+
+    LenStr = Len(HexString);
+    if ((LenStr % 2) != 0)
+    {
+        HexString = "0" $ HexString;
+        ++LenStr;
+    }
+    K = 0;
+    J = 0;
+    Dst.Length = LenStr / 2;
+    while (J < LenStr)
+    {
+        ByteS = Mid(HexString, J, 2);
+        Dst[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
+        J += 2;
+    }
+}
+
+private final simulated function int TestMemory()
+{
+    local int Failures;
+    local int XLen;
+    local int MLen;
+    local array<byte> XBytes;
+    local array<byte> Expected;
+    local array<int> X;
+
+    Failures = 0;
+
+    BytesFromHex(XBytes, "8815d9cd39874d1931329255ecd391");
+    BytesFromHex(Expected, "8815d915d9cd39874d1931329255ecd");
+
+    class'FCryptoBigInt'.static.Decode(X, XBytes, XBytes.Length);
+
+    // MLen = (M[0] + 15) >>> 4;
+    MLen = 9;
+    // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
+    class'FCryptoBigInt'.static.MemMove(
+        X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+
+    XBytes.Length = 0;
+    XLen = ((X[0] + 15) & ~15) >>> 2;
+    class'FCryptoBigInt'.static.Encode(XBytes, XLen, X);
+
+    Failures += BytesShouldBeEqual(XBytes, Expected, "XBytes != Expected");
+
+    return Failures;
+}
+
 private final simulated function int TestMath()
 {
     local array<int> X;
@@ -453,6 +624,8 @@ private final simulated function int TestMath()
     // We'll do some bare minimum allocations here to avoid issues.
     // TODO: does UScript dynamic array allocation break CT guarantees?
     // It most probably does. Is there an easy way to avoid it?
+    // TODO: these are most probably useless. We "re-allocate" arrays
+    // during big integer random generation anyway.
     P.Length = 4;
     A.Length = 4;
     B.Length = 4;
@@ -461,8 +634,6 @@ private final simulated function int TestMath()
     Ma.Length = 4;
     Mb.Length = 4;
     Mv.Length = 4;
-    // TODO: THE ABOVE DOES NOT ACTUALLY WORK SINCE WE USE ARRAY.LENGTH
-    // IN THE TESTS BELOW. TODO: OR DOES IT????
 
     class'FCryptoBigInt'.static.Decode(
         X,
@@ -509,7 +680,7 @@ private final simulated function int TestMath()
     // LogBytes(XEncoded);
     //                                     02 35 48 43 0C 5A E6 9E AE DC C2 07
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
-    Failures += BytesShouldBeEqual(Bytes_683384335291162482276352519, XEncoded);
+    Failures += BytesShouldBeEqual(XEncoded, Bytes_683384335291162482276352519, "XEncoded");
     X.Length = 0;
 
     KArr.Length = 4;
@@ -517,7 +688,15 @@ private final simulated function int TestMath()
     {
         for (I = 0; I < 10; ++I)
         {
-            GetPrime(P);
+            if (bUseRandomPrimes)
+            {
+                GetPrime(P);
+            }
+            else
+            {
+                GetRandomPrime(P);
+            }
+
             RandomBigInt(A, P);
             RandomBigInt(B, P);
 
@@ -605,25 +784,25 @@ private final simulated function int TestMath()
             GMPClient.Eq("T1", Ma);
             GMPClient.End();
 
-            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
-            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
-            // GMPClient.Begin();
-            // GMPClient.Var("T1", "");
-            // GMPClient.Var("A", BytesToString(A, ""));
-            // GMPClient.Var("P", BytesToString(P, ""));
-            // // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
-            // GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
-            // GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
-            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            // GMPClient.Eq("T1", Ma);
-            // GMPClient.End();
+            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("A", BytesToString(A, ""));
+            GMPClient.Var("P", BytesToString(P, ""));
+            // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
+            GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
+            GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
+            GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Ma);
+            GMPClient.End();
 
-            // class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
-            // GMPClient.Begin();
-            // GMPClient.Var("A", BytesToString(A, ""));
-            // GMPClient.Op("nop", "A", "A", "A");
-            // GMPClient.Eq("A", Ma);
-            // GMPClient.End();
+            class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
+            GMPClient.Begin();
+            GMPClient.Var("A", BytesToString(A, ""));
+            GMPClient.Op("nop", "A", "A", "A");
+            GMPClient.Eq("A", Ma);
+            GMPClient.End();
         }
     }
 
@@ -633,8 +812,10 @@ private final simulated function int TestMath()
 DefaultProperties
 {
     PrimeIndex=0
+    RandomPrimeIndex=0
     TestDelay=0.0
     GlobalClock=0.0
+    bRandPrimesRequested=False
 
     TickGroup=TG_DuringAsyncWork
     TickFrequency=0
@@ -1930,4 +2111,7 @@ DefaultProperties
     Primes(1264)=(P=(153,118,85,170,7,57,199,70,78,81,179,245,206,29,169,51))
     Primes(1265)=(P=(209,186,224,89,31,148,190,170,160,165,85,180,172,128,27,195))
     Primes(1266)=(P=(130,238,124,63,112,134,0,110,6,49,103,64,176,197,252,23))
+    Primes(1267)=(P=(192,241,87,10,47,148,53,12,212,231,149,108,98,123,48,187))
+    Primes(1268)=(P=(224,131,247,119,141,116,26,32,147,67,197,218,168,137,44,195))
+    Primes(1269)=(P=(175,178,230,249,202,185,151,211,151,22,96,169,198,45,41,71))
 }

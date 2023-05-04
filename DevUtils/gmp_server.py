@@ -1,6 +1,36 @@
+#!/usr/bin/env python
+
+# MIT License
+#
+# Copyright (c) 2023 Tuomo Kriikkula
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+"""GMP test utility server for FCrypto. Reads in variables
+and operations from the client, performs GMP mpz big integer
+calculations, and returns the results back to the client.
+"""
+
 import re
 import socketserver
 import sys
+import time
 from traceback import print_exc
 from typing import Dict
 from typing import List
@@ -12,8 +42,9 @@ PORT = 65432
 
 
 class GMPTCPHandler(socketserver.StreamRequestHandler):
-    id_regex = re.compile(r"T(\d+)\s.*")
+    id_regex = re.compile(r"T(\w+)\s.*")
     cmd_regex = re.compile(r"\[(.*?)]")
+    rng = gmpy2.random_state(int(time.time()))
 
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
@@ -31,7 +62,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                 self.calculate(cmd_data)
                 sys.stdout.flush()
             except Exception as e:
-                self.wfile.write(bytes("SERVER_ERROR"))
+                self.wfile.write(bytes("SERVER_ERROR\n", "utf-8"))
                 print(e)
                 print_exc()
 
@@ -39,6 +70,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         sys.stdout.flush()
 
     def calculate(self, cmd_data):
+        t_id = ""
         if match := self.id_regex.match(cmd_data):
             t_id = match.group(1)
         else:
@@ -84,6 +116,20 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                 case "nop":
                     mpz_vars[dst] = a
                     print(f"\t{dst} = {op[2]} (NO OPERATION)")
+                case "rand_prime":
+                    while True:
+                        x = gmpy2.mpz_urandomb(self.rng, a - 1)
+                        x = x.bit_set(0)
+                        x = x.bit_set(a - 1)
+                        # if x.is_probab_prime(50):
+                        if x.is_prime(50):
+                            x -= 1
+                            if x.is_divisible(65537):
+                                continue
+                            x += 1
+                            mpz_vars[dst] = x
+                            break
+                    print(f"\t{dst} = rand_prime({a}) ({mpz_vars[dst]})")
 
         if not dst:
             raise ValueError("no operations with dst")

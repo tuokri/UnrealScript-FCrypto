@@ -69,13 +69,19 @@ var private int LastFailuresLogged;
 var private int ChecksDone;
 var private int RequiredChecks;
 
+const ID_PRIME = "PRIME";
+const TID_PRIME = "TPRIME";
+
+var delegate<OnRandPrimeReceived> RandPrimeDelegate;
+delegate OnRandPrimeReceived(const out array<byte> P);
+
 simulated event Tick(float DeltaTime)
 {
     local int I;
-    local int J;
-    local int K;
-    local int LenResult;
-    local string ByteS;
+    // local int J;
+    // local int K;
+    // local int LenResult;
+    // local string ByteS;
     local int Fail;
 
     for (I = 0; I < Responses.Length; ++I)
@@ -86,11 +92,12 @@ simulated event Tick(float DeltaTime)
             PendingChecks.Remove(0, 1); // TODO: should do checks in a loop?
             ++ChecksDone;
             ++Failures;
+            continue;
         }
 
         ParseStringIntoArray(Responses[I], R_Array, " ", False);
         R_TID = R_Array[0];
-        R_GMPOperandName = R_Array[1]; // TODO: not needed?
+        R_GMPOperandName = R_Array[1];
         R_Result = R_Array[2];
 
         if (Len(R_Result) < 3)
@@ -100,20 +107,28 @@ simulated event Tick(float DeltaTime)
         }
         else
         {
-            LenResult = Len(R_Result);
-            if ((LenResult % 2) != 0)
-            {
-                R_Result = "0" $ R_Result;
-                ++LenResult;
-            }
-            K = 0;
-            J = 0;
-            while (J < LenResult)
-            {
-                ByteS = Mid(R_Result, J, 2);
-                R_ResultBytes[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
-                J += 2;
-            }
+            // LenResult = Len(R_Result);
+            // if ((LenResult % 2) != 0)
+            // {
+            //     R_Result = "0" $ R_Result;
+            //     ++LenResult;
+            // }
+            // K = 0;
+            // J = 0;
+            // R_ResultBytes.Length = LenResult / 2;
+            // while (J < LenResult)
+            // {
+            //     ByteS = Mid(R_Result, J, 2);
+            //     R_ResultBytes[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
+            //     J += 2;
+            // }
+            class'FCryptoTestMutator'.static.BytesFromHex(R_ResultBytes, R_Result);
+        }
+
+        if (R_TID == ID_PRIME)
+        {
+            RandPrimeDelegate(R_ResultBytes);
+            continue;
         }
 
         // `fclog(Responses[I]);
@@ -223,6 +238,16 @@ final simulated function Eq(string GMPOperandName, const out array<int> B)
 
     PendingChecks.AddItem(Check);
     RequiredChecks = PendingChecks.Length;
+}
+
+final simulated function RandPrime(int Size)
+{
+    SendText(
+        TID_PRIME
+        @ "[var s '" $ ToHex(Size) $ "']"
+        @ "[var x '0']"
+        @ "[op rand_prime x s s]"
+    );
 }
 
 event Resolved(IpAddr Addr)
