@@ -3,6 +3,8 @@
 UnrealScript cryptography utilities. The majority of this library
 is based heavily on [BearSSL](https://www.bearssl.org/).
 
+# DISCLAIMER: This library is under development and should be considered pre-alpha software!
+
 #### Why BearSSL?
 
 FCrypto is based on BearSSL simply because it is one of the most well documented
