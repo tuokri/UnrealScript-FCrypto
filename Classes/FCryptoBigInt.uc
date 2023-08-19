@@ -1111,7 +1111,7 @@ static final function int BIsZero(
     {
         Z = Z | X[U];
     }
-    return ~(Z | Z) >>> 31;
+    return ~(Z | -Z) >>> 31;
 }
 
 
