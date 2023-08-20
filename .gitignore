@@ -8,3 +8,5 @@
 **/venv_debian/
 
 *.log
+
+**/.python_version
