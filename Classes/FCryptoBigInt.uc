@@ -308,8 +308,8 @@ private static final function int NEQ(int X, int Y)
 {
     local int Q;
 
-    q = x ^ y;
-    return (q | -q) >>> 31;
+    Q = X ^ Y;
+    return (Q | -Q) >>> 31;
 }
 
 private static final function int GT(int X, int Y)
