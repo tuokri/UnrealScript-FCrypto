@@ -27,6 +27,7 @@ and operations from the client, performs GMP mpz big integer
 calculations, and returns the results back to the client.
 """
 
+import argparse
 import re
 import socketserver
 import sys
@@ -157,6 +158,16 @@ class TCPServer(socketserver.TCPServer):
 
 
 def main():
+    global PORT
+    global HOST
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--host", default=HOST)
+    args = ap.parse_args()
+    PORT = args.port
+    HOST = args.host
+
     with TCPServer((HOST, PORT), GMPTCPHandler) as server:
         server.serve_forever()
 
