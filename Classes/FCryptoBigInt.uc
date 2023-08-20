@@ -489,7 +489,7 @@ static final function int BitLength(
         C = EQ(Tw, 0);
         W = X[XLen];
         Tw = MUX(C, W, Tw);
-        Twk = MUX(C, XLen, T wk);
+        Twk = MUX(C, XLen, Twk);
     }
 
     return (Twk << 4) + BIT_LENGTH(Tw);
