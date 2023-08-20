@@ -368,7 +368,7 @@ private static final function int EQ0(int X)
 
     // q = (uint32_t)x;
     Q = X;
-    return ~(Q | Q) >>> 31;
+    return ~(Q | -Q) >>> 31;
 }
 
 // TODO: Is this needed in UScript?
@@ -489,7 +489,7 @@ static final function int BitLength(
         C = EQ(Tw, 0);
         W = X[XLen];
         Tw = MUX(C, W, Tw);
-        Twk = MUX(C, XLen, Twk);
+        Twk = MUX(C, XLen, T wk);
     }
 
     return (Twk << 4) + BIT_LENGTH(Tw);
