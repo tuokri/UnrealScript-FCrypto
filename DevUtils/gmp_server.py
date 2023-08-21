@@ -113,6 +113,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                     print(f"\t{dst} = {op[2]} % {op[3]} ({a} % {b})")
                 case "mpz_mul_2exp":
                     mpz_vars[dst] = a << b
+                    # mpz_vars[dst] = gmpy2.mpz(gmpy2.mul_2exp(a, b))
                     print(f"\t{dst} = {op[2]} << {op[3]} ({a} << {b})")
                 case "nop":
                     mpz_vars[dst] = a
