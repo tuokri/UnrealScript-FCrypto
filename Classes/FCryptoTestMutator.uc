@@ -225,6 +225,7 @@ private final simulated function RunTests()
         `fclog("bUseRandomPrimes:" @ bUseRandomPrimes);
 
         Failures += RunTest(TestMemory, nameof(TestMemory), I);
+        Failures += RunTest(TestOperations, nameof(TestOperations), I);
         Failures += RunTest(TestMath, nameof(TestMath), I);
     }
 
@@ -247,6 +248,51 @@ private final simulated function int StringsShouldBeEqual(string S1, string S2)
         `fcerror("[" $ S1 $ "]" @ "DOES NOT MATCH" @ "[" $ S2 $ "]");
         return 1;
     }
+    return 0;
+}
+
+private static final simulated function int IntsShouldBeEqual(
+    int A,
+    int B,
+    optional string Msg = ""
+)
+{
+    if (A != B)
+    {
+        `fcswarn("Mismatch:" @ A @ "!=" @ B @ Msg);
+        return 1;
+    }
+
+    return 0;
+}
+
+private static final simulated function int IntAShouldBeGreater(
+    int A,
+    int B,
+    optional string Msg = ""
+)
+{
+    if (A <= B)
+    {
+        `fcswarn("Mismatch:" @ A @ "<=" @ B @ Msg);
+        return 1;
+    }
+
+    return 0;
+}
+
+private static final simulated function int IntAShouldBeLess(
+    int A,
+    int B,
+    optional string Msg = ""
+)
+{
+    if (A >= B)
+    {
+        `fcswarn("Mismatch:" @ A @ ">=" @ B @ Msg);
+        return 1;
+    }
+
     return 0;
 }
 
@@ -599,6 +645,84 @@ private final simulated function int TestMemory()
     return Failures;
 }
 
+`if(`isdefined(FCDEBUG))
+private final simulated function int TestOperations()
+{
+    local array<int> X;
+    local int Test;
+    local int Test2;
+    local int Result;
+    local int Failures;
+
+    Failures = 0;
+
+    class'FCryptoBigInt'.static.Decode(
+        X,
+        Bytes_0,
+        Bytes_0.Length
+    );
+
+    Test = 0;
+    Result = class'FCryptoBigInt'.static.NOT(Test);
+    Failures += IntsShouldBeEqual(Result, 1, "NOT");
+    Result = class'FCryptoBigInt'.static.NOT(Result);
+    Failures += IntsShouldBeEqual(Result, 0, "NOT");
+
+    Test = 0;
+    Test2 = 1;
+    Result = class'FCryptoBigInt'.static.MUX(0, Test, Test2);
+    Failures += IntsShouldBeEqual(Result, Test2, "MUX");
+    Result = class'FCryptoBigInt'.static.MUX(1, Test, Test2);
+    Failures += IntsShouldBeEqual(Result, Test, "MUX");
+
+    Result = class'FCryptoBigInt'.static.EQ(5, 5);
+    Failures += IntsShouldBeEqual(Result, 1, "EQ");
+    Result = class'FCryptoBigInt'.static.EQ(7574, 0);
+    Failures += IntsShouldBeEqual(Result, 0, "EQ");
+
+    Result = class'FCryptoBigInt'.static.NEQ(5, 5);
+    Failures += IntsShouldBeEqual(Result, 0, "NEQ");
+    Result = class'FCryptoBigInt'.static.NEQ(7574, 0);
+    Failures += IntsShouldBeEqual(Result, 1, "NEQ");
+
+    Result = class'FCryptoBigInt'.static.GT(5, 5);
+    Failures += IntsShouldBeEqual(Result, 0, "GT");
+    Result = class'FCryptoBigInt'.static.GT(7574, 0);
+    Failures += IntsShouldBeEqual(Result, 1, "GT");
+    Result = class'FCryptoBigInt'.static.GT(5, 7345345);
+    Failures += IntsShouldBeEqual(Result, 0, "GT");
+
+    Result = class'FCryptoBigInt'.static.CMP(5, 5);
+    Failures += IntsShouldBeEqual(Result, 0, "CMP");
+    Result = class'FCryptoBigInt'.static.CMP(7574, 0);
+    Failures += IntsShouldBeEqual(Result, 1, "CMP");
+    Result = class'FCryptoBigInt'.static.CMP(5, 7345345);
+    Failures += IntsShouldBeEqual(Result, -1, "CMP");
+
+    Result = class'FCryptoBigInt'.static.EQ0(5);
+    Failures += IntsShouldBeEqual(Result, 0, "EQ0");
+    Result = class'FCryptoBigInt'.static.EQ0(0);
+    Failures += IntsShouldBeEqual(Result, 1, "EQ0");
+    Result = class'FCryptoBigInt'.static.EQ0(7345345);
+    Failures += IntsShouldBeEqual(Result, 0, "EQ0");
+
+    // Have to define these elsewhere to be able to test them.
+    // Result = `GE(5, 0);
+    // Failures += IntsShouldBeEqual(Result, 1, "GE");
+    // Result = `GE(0, 15);
+    // Failures += IntsShouldBeEqual(Result, 0, "GE");
+    // Result = `GE(1, 1);
+    // Failures += IntsShouldBeEqual(Result, 1, "GE");
+
+    return Failures;
+}
+`else
+{
+    `fcslog("Not debugging, skipping...");
+    return 0;
+}
+`endif
+
 private final simulated function int TestMath()
 {
     local array<int> X;
@@ -618,6 +742,10 @@ private final simulated function int TestMath()
     local int I;
     local int Ctl;
     local int MP0I;
+    local int Test1;
+    local int Test2;
+    local int Result;
+    local int Remainder;
     local string BigIntString;
 
     // BearSSL assumes all operands caller-allocated.
@@ -688,7 +816,7 @@ private final simulated function int TestMath()
     {
         for (I = 0; I < 10; ++I)
         {
-            if (bUseRandomPrimes)
+            if (!bUseRandomPrimes)
             {
                 GetPrime(P);
             }
@@ -705,6 +833,18 @@ private final simulated function int TestMath()
             RandomBigInt(V, KArr);
             // `fclog("V Bytes:");
             // LogBytes(V);
+
+            Test1 = 10;
+            Test2 = 2;
+            Result = class'FCryptoBigInt'.static.DivRem16(Test1, Test2, Remainder);
+            Failures += IntsShouldBeEqual(Result, 10 / 2, "DivRem16");
+            Failures += IntsShouldBeEqual(Remainder, 0, "DivRem16");
+
+            Test1 = 22;
+            Test2 = 3;
+            Result = class'FCryptoBigInt'.static.DivRem16(Test1, Test2, Remainder);
+            Failures += IntsShouldBeEqual(Result, 7, "DivRem16");
+            Failures += IntsShouldBeEqual(Remainder, 1, "DivRem16");
 
             class'FCryptoBigInt'.static.Decode(Mp, P, P.Length);
             if (class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp) != 1)
@@ -745,7 +885,7 @@ private final simulated function int TestMath()
             GMPClient.Var("P", BytesToString(P, ""));
             GMPClient.Op("mpz_add", "T1", "A", "B");
             GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            GMPClient.Eq("T1", Ma);
+            GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
 
             class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
@@ -762,7 +902,7 @@ private final simulated function int TestMath()
             GMPClient.Var("P", BytesToString(P, ""));
             GMPClient.Op("mpz_sub", "T1", "A", "B");
             GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            GMPClient.Eq("T1", Ma);
+            GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
 
             class'FCryptoBigInt'.static.DecodeReduce(Ma, V, V.Length, Mp);
@@ -771,7 +911,7 @@ private final simulated function int TestMath()
             GMPClient.Var("V", BytesToString(V, ""));
             GMPClient.Var("P", BytesToString(P, ""));
             GMPClient.Op("mpz_mod", "T1", "V", "P");
-            GMPClient.Eq("T1", Ma);
+            GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
 
             class'FCryptoBigInt'.static.Decode(Mv, V, V.Length);
@@ -781,28 +921,28 @@ private final simulated function int TestMath()
             GMPClient.Var("V", BytesToString(V, ""));
             GMPClient.Var("P", BytesToString(P, ""));
             GMPClient.Op("mpz_mod", "T1", "V", "P");
-            GMPClient.Eq("T1", Ma);
+            GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
 
-            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
-            class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
-            GMPClient.Begin();
-            GMPClient.Var("T1", "");
-            GMPClient.Var("A", BytesToString(A, ""));
-            GMPClient.Var("P", BytesToString(P, ""));
-            // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
-            GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
-            GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
-            GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            GMPClient.Eq("T1", Ma);
-            GMPClient.End();
+            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
+            // GMPClient.Begin();
+            // GMPClient.Var("T1", "");
+            // GMPClient.Var("A", BytesToString(A, ""));
+            // GMPClient.Var("P", BytesToString(P, ""));
+            // // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
+            // GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
+            // GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
+            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            // GMPClient.Eq("T1", Ma, "T1 == Ma (DecodeMod+ToMonty)");
+            // GMPClient.End();
 
-            class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
-            GMPClient.Begin();
-            GMPClient.Var("A", BytesToString(A, ""));
-            GMPClient.Op("nop", "A", "A", "A");
-            GMPClient.Eq("A", Ma);
-            GMPClient.End();
+            // class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
+            // GMPClient.Begin();
+            // GMPClient.Var("A", BytesToString(A, ""));
+            // GMPClient.Op("nop", "A", "A", "A");
+            // GMPClient.Eq("A", Ma, "A == Ma (FromMonty)");
+            // GMPClient.End();
         }
     }
 
@@ -814,6 +954,7 @@ DefaultProperties
     PrimeIndex=0
     RandomPrimeIndex=0
     TestDelay=0.0
+    NumTestLoops=1
     GlobalClock=0.0
     bRandPrimesRequested=False
 

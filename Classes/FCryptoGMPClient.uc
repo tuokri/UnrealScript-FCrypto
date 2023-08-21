@@ -46,6 +46,7 @@ var private array<string> TransactionStack;
 
 struct PendingCheck
 {
+    var string TestName;
     var int TransactionID;
     var string GMPOperandName;
     var array<int> BigIntOperand;
@@ -143,6 +144,7 @@ simulated event Tick(float DeltaTime)
 
         if (Fail > 0)
         {
+            `fcwarn("CurrentCheck.TestName       :" @ CurrentCheck.TestName);
             `fcwarn("CurrentCheck.TID            :" @ CurrentCheck.TransactionID);
             `fcwarn("CurrentCheck.GMPOperandName :" @ CurrentCheck.GMPOperandName);
             `fcwarn("R_TID                       :" @ R_TID);
@@ -228,7 +230,8 @@ final simulated function Op(string Op, string Dst, string A, string B)
     TransactionStack.AddItem("op" @ Op @ Dst @ A @ B );
 }
 
-final simulated function Eq(string GMPOperandName, const out array<int> B)
+final simulated function Eq(string GMPOperandName, const out array<int> B,
+    string TestName = "Unnamed")
 {
     local PendingCheck Check;
 

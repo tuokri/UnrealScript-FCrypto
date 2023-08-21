@@ -49,6 +49,12 @@ class FCryptoBigInt extends Object
 
 const SIZEOF_UINT16_T = 2;
 
+`if(`isdefined(FCDEBUG))
+    `define fcprivate
+`else
+    `define fcprivate private
+`endif
+
 /**
  * C-style memcmp operation.
  * Offset is the number of bytes values
@@ -277,7 +283,7 @@ private static final function CCOPY(
 /*
  * Negate a boolean.
  */
-private static final function int NOT(int Ctl)
+`fcprivate static final function int NOT(int Ctl)
 {
     return Ctl ^ 1;
 }
@@ -285,34 +291,34 @@ private static final function int NOT(int Ctl)
 /*
  * Multiplexer: returns X if ctl == 1, y if ctl == 0.
  */
-private static final function int MUX(int Ctl, int X, Int Y)
+`fcprivate static final function int MUX(int Ctl, int X, Int Y)
 {
-    return Y ^ (-Ctl & (X ^ Y));
+    return Y ^ ((-Ctl) & (X ^ Y));
 }
 
 /*
  * Equality check: returns 1 if X == y, 0 otherwise.
  */
-private static final function int EQ(int X, int Y)
+`fcprivate static final function int EQ(int X, int Y)
 {
     local int Q;
 
     Q = X ^ Y;
-    return NOT((Q | -Q) >>> 31);
+    return NOT((Q | (-Q)) >>> 31);
 }
 
 /*
  * Inequality check: returns 1 if x != y, 0 otherwise.
  */
-private static final function int NEQ(int X, int Y)
+`fcprivate static final function int NEQ(int X, int Y)
 {
     local int Q;
 
     Q = X ^ Y;
-    return (Q | -Q) >>> 31;
+    return (Q | (-Q)) >>> 31;
 }
 
-private static final function int GT(int X, int Y)
+`fcprivate static final function int GT(int X, int Y)
 {
     /*
      * If both x < 2^31 and x < 2^31, then y-x will have its high
@@ -336,7 +342,7 @@ private static final function int GT(int X, int Y)
  * Compute the bit length of a 32-bit integer. Returned value is between 0
  * and 32 (inclusive).
  */
-private static final function int BIT_LENGTH(int X)
+`fcprivate static final function int BIT_LENGTH(int X)
 {
     local int K;
     local int C;
@@ -354,21 +360,17 @@ private static final function int BIT_LENGTH(int X)
  * General comparison: returned value is -1, 0 or 1, depending on
  * whether x is lower than, equal to, or greater than y.
  */
-private static final function int CMP(int X, int Y)
+`fcprivate static final function int CMP(int X, int Y)
 {
-    return GT(X, Y) | -GT(Y, X);
+    return GT(X, Y) | (-GT(Y, X));
 }
 
 /*
  * Returns 1 if x == 0, 0 otherwise. Take care that the operand is signed.
  */
-private static final function int EQ0(int X)
+`fcprivate static final function int EQ0(int X)
 {
-    local int Q;
-
-    // q = (uint32_t)x;
-    Q = X;
-    return ~(Q | -Q) >>> 31;
+    return (~(X | -X)) >>> 31;
 }
 
 // TODO: Is this needed in UScript?
@@ -575,7 +577,7 @@ static final function int DecodeMod(
             {
                 B = 0;
             }
-            Acc = Acc | (B << AccLen);
+            Acc = Acc | ((B << AccLen) & 0xFFFF); // @ALIGN-32-16. // TODO: not needed?
             AccLen += 8;
             if (AccLen >= 15)
             {
@@ -912,7 +914,7 @@ static final function MulAddSmall(
      * If we overestimated q, then cc > hi.
      */
     Over = GT(Cc, Hi);
-    Under = ~Over & (Tb | `LT(Cc, Hi));
+    Under = (~Over) & (Tb | (`LT(Cc, Hi)));
     Add(X, M, Over);
     Sub(X, M, Under);
 }
