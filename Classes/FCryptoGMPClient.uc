@@ -123,7 +123,7 @@ simulated event Tick(float DeltaTime)
             //     R_ResultBytes[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
             //     J += 2;
             // }
-            class'FCryptoTestMutator'.static.BytesFromHex(R_ResultBytes, R_Result);
+            class'FCryptoBigInt'.static.BytesFromHex(R_ResultBytes, R_Result);
         }
 
         if (R_TID == ID_PRIME)

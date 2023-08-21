@@ -86,7 +86,7 @@ final simulated function AddRandomPrime(
     // `fclog(
     //     "Idx:" @ RandomPrimeIndex
     //     @ "Len:" @ RandomPrimes.Length
-    //     @ "P:" @ BytesToString(P)
+    //     @ "P:" @ BytesWordsToString(P)
     // );
     RandomPrimes.Length = RandomPrimes.Length + 1;
     RandomPrimes[RandomPrimes.Length - 1].P = P;
@@ -408,7 +408,7 @@ static final simulated function int CheckEqz(
     // return 1 - Good;
 }
 
-static final simulated function string BytesToString(
+static final simulated function string BytesWordsToString(
     const out array<byte> X,
     optional string Delimiter = " "
 )
@@ -433,7 +433,7 @@ static final simulated function LogBytes(
     const out array<byte> X
 )
 {
-    `fcslog(BytesToString(X));
+    `fcslog(BytesWordsToString(X));
 }
 
 private final simulated function GetRandomPrime(
@@ -443,7 +443,7 @@ private final simulated function GetRandomPrime(
     // `fclog("RandomPrimeIndex:" @ RandomPrimeIndex);
     Dst = RandomPrimes[RandomPrimeIndex++].P;
     RandomPrimeIndex = RandomPrimeIndex % RandomPrimes.Length;
-    // `fclog("Dst             :" @ BytesToString(Dst));
+    // `fclog("Dst             :" @ BytesWordsToString(Dst));
 }
 
 private final simulated function GetPrime(
@@ -468,10 +468,12 @@ private final simulated function RandomBigInt(
     local int Rounds;
     local array<int> BigIntCheck;
     local array<int> BigIntN;
+    local int BICLen;
+    local int BINLen;
     // local string BigIntNString;
 
     class'FCryptoBigInt'.static.Decode(BigIntN, N, N.Length);
-    // BigIntNString = class'FCryptoBigInt'.static.ToString(BigIntN);
+    // BigIntNString = class'FCryptoBigInt'.static.WordsToString(BigIntN);
 
     if (N.Length == 1)
     {
@@ -499,7 +501,7 @@ private final simulated function RandomBigInt(
         Dst[0] = Rand(N[0]);
 
         // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, 1);
-        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.WordsToString(BigIntCheck));
 
         return;
     }
@@ -521,19 +523,41 @@ private final simulated function RandomBigInt(
         // `fclog("BigIntN     :" @ BigIntNString);
         // `fclog("N   Bytes:");
         // LogBytes(N);
-        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.WordsToString(BigIntCheck));
 
         // TODO: we can probably skip this check until I == Rounds?
         // Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
         // `fclog("Ctl         :" @ Ctl);
         // `fclog("I           :" @ I);
-        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+        // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.WordsToString(BigIntCheck));
 
         if (I >= Rounds)
         {
             BigIntCheck.Length = 0;
             class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
-            Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, Ctl);
+
+            BICLen = (BigIntCheck[0] + 15) >>> 4;
+            BINLen = (BigIntN[0] + 15) >>> 4;
+
+            // Need to make sure announced bit lengths are equal
+            // before using Sub().
+            if (BICLen < BINLen)
+            {
+                BigIntCheck[0] = BigIntN[0];
+            }
+            else if (BINLen < BICLen)
+            {
+                BigIntN[0] = BigIntCheck[0];
+            }
+
+            // if (BICLen != BINLen)
+            // {
+            //     `fcwarn("BICLen != BINLen" @ BICLen @ BINLen);
+            // }
+
+            // Ctl == 0 -> BigIntCheck > BigIntN.
+            // Ctl != 0 -> BigIntN     > BigIntCheck.
+            Ctl = class'FCryptoBigInt'.static.Sub(BigIntCheck, BigIntN, 0);
 
             // Went above, drop top byte and call it good. There's probably
             // a better method, like re-randomizing the top byte?
@@ -544,7 +568,7 @@ private final simulated function RandomBigInt(
                 // BigIntCheck.Length = 0;
                 // class'FCryptoBigInt'.static.Decode(BigIntCheck, Dst, Dst.Length);
                 // `fclog("final       :");
-                // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.ToString(BigIntCheck));
+                // `fclog("BigIntCheck :" @ class'FCryptoBigInt'.static.WordsToString(BigIntCheck));
 
                 return;
             }
@@ -587,33 +611,6 @@ private final simulated function IntToBytes(
     Bytes[3] = (I       ) & 0xFF;
 }
 
-static final simulated function BytesFromHex(
-    out array<byte> Dst,
-    string HexString
-)
-{
-    local int K;
-    local int J;
-    local int LenStr;
-    local string ByteS;
-
-    LenStr = Len(HexString);
-    if ((LenStr % 2) != 0)
-    {
-        HexString = "0" $ HexString;
-        ++LenStr;
-    }
-    K = 0;
-    J = 0;
-    Dst.Length = LenStr / 2;
-    while (J < LenStr)
-    {
-        ByteS = Mid(HexString, J, 2);
-        Dst[K++] = class'WebAdminUtils'.static.FromHex(ByteS);
-        J += 2;
-    }
-}
-
 private final simulated function int TestMemory()
 {
     local int Failures;
@@ -625,8 +622,8 @@ private final simulated function int TestMemory()
 
     Failures = 0;
 
-    BytesFromHex(XBytes, "8815d9cd39874d1931329255ecd391");
-    BytesFromHex(Expected, "8815d915d9cd39874d1931329255ecd");
+    class'FCryptoBigInt'.static.BytesFromHex(XBytes, "8815d9cd39874d1931329255ecd391");
+    class'FCryptoBigInt'.static.BytesFromHex(Expected, "8815d915d9cd39874d1931329255ecd");
 
     class'FCryptoBigInt'.static.Decode(X, XBytes, XBytes.Length);
 
@@ -736,11 +733,13 @@ private final simulated function int TestMath()
     local array<int> Ma;
     local array<int> Mb;
     local array<int> Mv;
+    local array<int> Mt1;
     local int XLen;
     local int Failures;
     local int K;
     local int I;
     local int Ctl;
+    local int Ctl2;
     local int MP0I;
     local int Test1;
     local int Test2;
@@ -768,7 +767,7 @@ private final simulated function int TestMath()
         Bytes_0,
         Bytes_0.Length
     );
-    BigIntString = class'FCryptoBigInt'.static.ToString(X);
+    BigIntString = class'FCryptoBigInt'.static.WordsToString(X);
     Failures += StringsShouldBeEqual(
         BigIntString,
         "00000000 (0, 0)"
@@ -780,7 +779,7 @@ private final simulated function int TestMath()
         Bytes_257871904,
         Bytes_257871904.Length
     );
-    BigIntString = class'FCryptoBigInt'.static.ToString(X);
+    BigIntString = class'FCryptoBigInt'.static.WordsToString(X);
     // `fclog("257871904                   BigInt :" @ BigIntString);
     //     1EBD     5020 (1, 13) (BearSSL)
     // 00001EBD 00005020 (1, 13) (UScript)
@@ -795,7 +794,7 @@ private final simulated function int TestMath()
         Bytes_683384335291162482276352519,
         Bytes_683384335291162482276352519.Length
     );
-    BigIntString = class'FCryptoBigInt'.static.ToString(X);
+    BigIntString = class'FCryptoBigInt'.static.WordsToString(X);
     // `fclog("683384335291162482276352519 BigInt :" @ BigIntString);
     //     46A9     0430     62D7     1A7A     5DB9     4207 (5, 15) (BearSSL)
     // 000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15) (UScript)
@@ -852,7 +851,7 @@ private final simulated function int TestMath()
                 `fclog("Decode error!");
                 `fclog("A bytes:");
                 LogBytes(A);
-                `fclog("Mp:" @ class'FCryptoBigInt'.static.ToString(Mp));
+                `fclog("Mp:" @ class'FCryptoBigInt'.static.WordsToString(Mp));
                 ++Failures;
             }
 
@@ -862,7 +861,7 @@ private final simulated function int TestMath()
                 `fclog("Decode error!");
                 `fclog("B bytes:");
                 LogBytes(B);
-                `fclog("Mp:" @ class'FCryptoBigInt'.static.ToString(Mp));
+                `fclog("Mp:" @ class'FCryptoBigInt'.static.WordsToString(Mp));
                 `fclog("MP0I:" @ MP0I);
                 ++Failures;
             }
@@ -880,9 +879,9 @@ private final simulated function int TestMath()
             class'FCryptoBigInt'.static.Sub(Ma, Mp, Ctl);
             GMPClient.Begin();
             GMPClient.Var("T1", "");
-            GMPClient.Var("A", BytesToString(A, ""));
-            GMPClient.Var("B", BytesToString(B, ""));
-            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Var("A", BytesWordsToString(A, ""));
+            GMPClient.Var("B", BytesWordsToString(B, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
             GMPClient.Op("mpz_add", "T1", "A", "B");
             GMPClient.Op("mpz_mod", "T1", "T1", "P");
             GMPClient.Eq("T1", Ma, "T1 == Ma");
@@ -897,9 +896,9 @@ private final simulated function int TestMath()
             );
             GMPClient.Begin();
             GMPClient.Var("T1", "");
-            GMPClient.Var("A", BytesToString(A, ""));
-            GMPClient.Var("B", BytesToString(B, ""));
-            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Var("A", BytesWordsToString(A, ""));
+            GMPClient.Var("B", BytesWordsToString(B, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
             GMPClient.Op("mpz_sub", "T1", "A", "B");
             GMPClient.Op("mpz_mod", "T1", "T1", "P");
             GMPClient.Eq("T1", Ma, "T1 == Ma");
@@ -908,8 +907,8 @@ private final simulated function int TestMath()
             class'FCryptoBigInt'.static.DecodeReduce(Ma, V, V.Length, Mp);
             GMPClient.Begin();
             GMPClient.Var("T1", "");
-            GMPClient.Var("V", BytesToString(V, ""));
-            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Var("V", BytesWordsToString(V, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
             GMPClient.Op("mpz_mod", "T1", "V", "P");
             GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
@@ -918,23 +917,39 @@ private final simulated function int TestMath()
             class'FCryptoBigInt'.static.Reduce(Ma, Mv, Mp);
             GMPClient.Begin();
             GMPClient.Var("T1", "");
-            GMPClient.Var("V", BytesToString(V, ""));
-            GMPClient.Var("P", BytesToString(P, ""));
+            GMPClient.Var("V", BytesWordsToString(V, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
             GMPClient.Op("mpz_mod", "T1", "V", "P");
             GMPClient.Eq("T1", Ma, "T1 == Ma");
             GMPClient.End();
 
-            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
-            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
+            // Ctl2 == 0 -> Ma >= Mp.
+            // Ctl2 != 0 -> Ma <  Mp.
+            Ctl2 = class'FCryptoBigInt'.static.Sub(Ma, Mp, 0);
+            if (Ctl2 == 0)
+            {
+                `fcwarn("warning, (Ma < Mp) check failed before DecodeMod for:");
+                `fcwarn("Ma   :" @ class'FCryptoBigInt'.static.WordsToString(Ma));
+                `fcwarn("Mp   :" @ class'FCryptoBigInt'.static.WordsToString(Mp));
+                `fcwarn("Ctl2 :" @ Ctl2);
+            }
+
+            // TODO: nasty bug somewhere in DecodeMod or ToMonty (or both).
+            // Generate some static example cases with BearSSL and then
+            // implement them here in this test suite.
+
+            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
             // GMPClient.Begin();
             // GMPClient.Var("T1", "");
-            // GMPClient.Var("A", BytesToString(A, ""));
-            // GMPClient.Var("P", BytesToString(P, ""));
+            // GMPClient.Var("A", BytesWordsToString(A, ""));
+            // GMPClient.Var("P", BytesWordsToString(P, ""));
             // // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
             // GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
             // GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
             // GMPClient.Op("mpz_mod", "T1", "T1", "P");
             // GMPClient.Eq("T1", Ma, "T1 == Ma (DecodeMod+ToMonty)");
+            // GMPClient.Eq("T1", Ma);
             // GMPClient.End();
 
             // class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
@@ -942,6 +957,24 @@ private final simulated function int TestMath()
             // GMPClient.Var("A", BytesToString(A, ""));
             // GMPClient.Op("nop", "A", "A", "A");
             // GMPClient.Eq("A", Ma, "A == Ma (FromMonty)");
+            // GMPClient.End();
+            // GMPClient.Var("A", BytesWordsToString(A, ""));
+            // GMPClient.Op("nop", "A", "A", "A");
+            // GMPClient.Eq("A", Ma);
+            // GMPClient.End();
+
+            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            // class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
+            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
+            // class'FCryptoBigInt'.static.MontyMul(Mt1, Ma, Mb, Mp, MP0I);
+            // GMPClient.Begin();
+            // GMPClient.Var("T1", "0");
+            // GMPClient.Var("A", BytesWordsToString(A, ""));
+            // GMPClient.Var("B", BytesWordsToString(B, ""));
+            // GMPClient.Var("P", BytesWordsToString(P, ""));
+            // GMPClient.Op("mpz_mul", "T1", "A", "B");
+            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            // GMPClient.Eq("T1", Mt1);
             // GMPClient.End();
         }
     }

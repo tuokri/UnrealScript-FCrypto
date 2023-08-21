@@ -38,6 +38,10 @@ class FCryptoBigInt extends Object
     abstract
     notplaceable;
 
+// TODO: interesting discussion on converting big integers to
+// decimal strings. It's about C#, but could be relevant.
+// https://stackoverflow.com/questions/13154304/fastest-way-to-convert-a-biginteger-to-a-decimal-base-10-string
+
 // TODO: rewrite documentation to be more UScript-like.
 // TODO: remove the parts of documentation only relevant in C.
 // TODO: do all these constant time compiler tricks work in UScript?
@@ -47,6 +51,10 @@ class FCryptoBigInt extends Object
 // constants (0x7FFF) may not work as expected when directly replacing
 // uint16_t variables with UScript 32-bit integers!
 
+// TODO: there are a few places where dynamic array resizing is used.
+// We should remove all of these if possible, to keep BearSSL CT guarantees
+// as intact as possible. This is only a best effort CT guarantee, though.
+
 const SIZEOF_UINT16_T = 2;
 
 `if(`isdefined(FCDEBUG))
@@ -54,6 +62,162 @@ const SIZEOF_UINT16_T = 2;
 `else
     `define fcprivate private
 `endif
+
+// TODO: OOP-style interface. Should be in a separate file?
+
+// Header word + value words. Max 16 bits used per word.
+var private array<int> Words;
+
+// 0 for positive, 1 for negative.
+var private int Sign;
+
+final function Init_IntArray(
+    const out array<int> InitWords,
+    optional int InitSign = 0
+)
+{
+    Words = InitWords;
+    Sign = InitSign;
+}
+
+final function Init_ByteArray(
+    const out array<byte> InitBytes,
+    optional int InitSign = 0
+)
+{
+    Decode(Words, InitBytes, InitBytes.Length);
+    Sign = InitSign;
+}
+
+final function Init_HexString(
+    coerce string HexString,
+    optional int InitSign = 0
+)
+{
+    local array<byte> Bytes;
+    BytesFromHex(Bytes, HexString);
+    Init_ByteArray(Bytes, InitSign);
+}
+
+final function string ToString()
+{
+    return static.WordsToString(Words);
+}
+
+// EXPERIMENTAL! For now assumes input Ctl is always 1.
+static final operator(20) FCryptoBigInt + (FCryptoBigInt A, FCryptoBigInt B)
+{
+    // TODO: need to check announced bit lengths.
+
+    A.Sign = Add(A.Words, B.Words, 1);
+    return A;
+}
+
+// EXPERIMENTAL! For now assumes input Ctl is always 1.
+static final operator(20) FCryptoBigInt - (FCryptoBigInt A, FCryptoBigInt B)
+{
+    // TODO: need to check announced bit lengths.
+
+    A.Sign = Sub(A.Words, B.Words, 1);
+    return A;
+}
+
+/*
+ * Negate a boolean.
+ */
+`fcprivate static final function int NOT(int Ctl)
+{
+    return Ctl ^ 1;
+}
+
+/*
+ * Multiplexer: returns X if ctl == 1, y if ctl == 0.
+ */
+`fcprivate static final function int MUX(int Ctl, int X, Int Y)
+{
+    return Y ^ ((-Ctl) & (X ^ Y));
+}
+
+/*
+ * Equality check: returns 1 if X == y, 0 otherwise.
+ */
+`fcprivate static final function int EQ(int X, int Y)
+{
+    local int Q;
+
+    Q = X ^ Y;
+    return NOT((Q | (-Q)) >>> 31);
+}
+
+/*
+ * Inequality check: returns 1 if x != y, 0 otherwise.
+ */
+`fcprivate static final function int NEQ(int X, int Y)
+{
+    local int Q;
+
+    Q = X ^ Y;
+    return (Q | (-Q)) >>> 31;
+}
+
+`fcprivate static final function int GT(int X, int Y)
+{
+    /*
+     * If both x < 2^31 and x < 2^31, then y-x will have its high
+     * bit set if x > y, cleared otherwise.
+     *
+     * If either x >= 2^31 or y >= 2^31 (but not both), then the
+     * result is the high bit of x.
+     *
+     * If both x >= 2^31 and y >= 2^31, then we can virtually
+     * subtract 2^31 from both, and we are back to the first case.
+     * Since (y-2^31)-(x-2^31) = y-x, the subtraction is already
+     * fine.
+     */
+    local int Z;
+
+    Z = Y - X;
+    return (Z ^ ((X ^ Y) & (X ^ Z))) >>> 31;
+}
+
+/*
+ * Compute the bit length of a 32-bit integer. Returned value is between 0
+ * and 32 (inclusive).
+ */
+`fcprivate static final function int BIT_LENGTH(int X)
+{
+    local int K;
+    local int C;
+
+    K = NEQ(X, 0);
+    C = GT(X, 0xFFFF); X = MUX(C, X >>> 16, X); K += C << 4;
+    C = GT(X, 0x00FF); X = MUX(C, X >>>  8, X); K += C << 3;
+    C = GT(X, 0x000F); X = MUX(C, X >>>  4, X); K += C << 2;
+    C = GT(X, 0x0003); X = MUX(C, X >>>  2, X); K += C << 1;
+    K += GT(X, 0x0001);
+    return K;
+}
+
+/*
+ * General comparison: returned value is -1, 0 or 1, depending on
+ * whether x is lower than, equal to, or greater than y.
+ */
+`fcprivate static final function int CMP(int X, int Y)
+{
+    return GT(X, Y) | (-GT(Y, X));
+}
+
+/*
+ * Returns 1 if x == 0, 0 otherwise. Take care that the operand is signed.
+ */
+`fcprivate static final function int EQ0(int X)
+{
+    return (~(X | -X)) >>> 31;
+}
+
+`define GE(X, Y) (NOT(GT(`Y, `X)))
+`define LT(X, Y) (GT(`Y, `X))
+`define LE(X, Y) (NOT(GT(`X, `Y)))
 
 /**
  * C-style memcmp operation.
@@ -281,108 +445,6 @@ private static final function CCOPY(
 }
 
 /*
- * Negate a boolean.
- */
-`fcprivate static final function int NOT(int Ctl)
-{
-    return Ctl ^ 1;
-}
-
-/*
- * Multiplexer: returns X if ctl == 1, y if ctl == 0.
- */
-`fcprivate static final function int MUX(int Ctl, int X, Int Y)
-{
-    return Y ^ ((-Ctl) & (X ^ Y));
-}
-
-/*
- * Equality check: returns 1 if X == y, 0 otherwise.
- */
-`fcprivate static final function int EQ(int X, int Y)
-{
-    local int Q;
-
-    Q = X ^ Y;
-    return NOT((Q | (-Q)) >>> 31);
-}
-
-/*
- * Inequality check: returns 1 if x != y, 0 otherwise.
- */
-`fcprivate static final function int NEQ(int X, int Y)
-{
-    local int Q;
-
-    Q = X ^ Y;
-    return (Q | (-Q)) >>> 31;
-}
-
-`fcprivate static final function int GT(int X, int Y)
-{
-    /*
-     * If both x < 2^31 and x < 2^31, then y-x will have its high
-     * bit set if x > y, cleared otherwise.
-     *
-     * If either x >= 2^31 or y >= 2^31 (but not both), then the
-     * result is the high bit of x.
-     *
-     * If both x >= 2^31 and y >= 2^31, then we can virtually
-     * subtract 2^31 from both, and we are back to the first case.
-     * Since (y-2^31)-(x-2^31) = y-x, the subtraction is already
-     * fine.
-     */
-    local int Z;
-
-    Z = Y - X;
-    return (Z ^ ((X ^ Y) & (X ^ Z))) >>> 31;
-}
-
-/*
- * Compute the bit length of a 32-bit integer. Returned value is between 0
- * and 32 (inclusive).
- */
-`fcprivate static final function int BIT_LENGTH(int X)
-{
-    local int K;
-    local int C;
-
-    K = NEQ(X, 0);
-    C = GT(X, 0xFFFF); X = MUX(C, X >>> 16, X); K += C << 4;
-    C = GT(X, 0x00FF); X = MUX(C, X >>>  8, X); K += C << 3;
-    C = GT(X, 0x000F); X = MUX(C, X >>>  4, X); K += C << 2;
-    C = GT(X, 0x0003); X = MUX(C, X >>>  2, X); K += C << 1;
-    K += GT(X, 0x0001);
-    return K;
-}
-
-/*
- * General comparison: returned value is -1, 0 or 1, depending on
- * whether x is lower than, equal to, or greater than y.
- */
-`fcprivate static final function int CMP(int X, int Y)
-{
-    return GT(X, Y) | (-GT(Y, X));
-}
-
-/*
- * Returns 1 if x == 0, 0 otherwise. Take care that the operand is signed.
- */
-`fcprivate static final function int EQ0(int X)
-{
-    return (~(X | -X)) >>> 31;
-}
-
-// TODO: Is this needed in UScript?
-// private static final function int MUL15()
-// {
-// }
-
-`define GE(X, Y) (NOT(GT(`Y, `X)))
-`define LT(X, Y) (GT(`Y, `X))
-`define LE(X, Y) (NOT(GT(`X, `Y)))
-
-/*
  * Zeroize an integer. The announced bit length is set to the provided
  * value, and the corresponding words are set to 0.
  */
@@ -393,7 +455,7 @@ static final function Zero(
 {
     // *x ++ = bit_len;
     // memset(x, 0, ((bit_len + 15) >> 4) * sizeof *x);
-    X[0] = BitLen;
+    X[0] = BitLen & 0xFFFF; // @ALIGN-32-16.
     MemSet_UInt16(X, 0, ((BitLen + 15) >>> 4) * SIZEOF_UINT16_T, 1);
 }
 
@@ -2076,7 +2138,7 @@ static final function Reduce(
     }
 }
 
-static final function string ToString(
+static final function string WordsToString(
     const out array<int> X
 )
 {
@@ -2100,4 +2162,31 @@ static final function string ToString(
 
     Str @= "(" $ (X[0] >>> 4) $ "," @ (X[0] & 15) $ ")";
     return Str;
+}
+
+static final function BytesFromHex(
+    out array<byte> Dst,
+    string HexString
+)
+{
+    local int K;
+    local int J;
+    local int LenStr;
+    local string ByteS;
+
+    LenStr = Len(HexString);
+    if ((LenStr % 2) != 0)
+    {
+        HexString = "0" $ HexString;
+        ++LenStr;
+    }
+    K = 0;
+    J = 0;
+    Dst.Length = LenStr / 2;
+    while (J < LenStr)
+    {
+        ByteS = Mid(HexString, J, 2);
+        Dst[K++] = class'WebAdminUtils'.static.FromHex(Bytes);
+        J += 2;
+    }
 }
