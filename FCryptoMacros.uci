@@ -15,7 +15,7 @@
 
 `define fcswarn(msg, cond) `fcslog(`msg, `cond, 'WARNING')
 
-`ifdef(FCDEBUG)
+`if(`isdefined(FCDEBUG))
     `define fcdebug(msg, cond) `fclog(`msg, `cond, 'DEBUG')
 `else
     `define fcdebug(msg, cond, tag)
