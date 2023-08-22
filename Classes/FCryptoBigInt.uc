@@ -264,6 +264,7 @@ static final function MemMove(
     local int Shift;
     local int Mask;
     local array<byte> DstBytes;
+    local int DstTmp;
 
     /*
      * Take all 16-bit integers from Src and put them
@@ -274,11 +275,12 @@ static final function MemMove(
     Shift = 8;
     while (ByteIndex < NumBytes)
     {
-        DstBytes[ByteIndex++] = (Src[IntIndex] >>> Shift) & 0xff;
+        DstBytes[ByteIndex] = (Src[IntIndex] >>> Shift) & 0xff;
         // Shift = (Shift + 8) % 16;
         Shift = (Shift + 8) & 15;
         // IntIndex += ByteIndex % 2;
         IntIndex += ByteIndex & 1;
+        ++ByteIndex;
     }
 
     /*
@@ -289,9 +291,9 @@ static final function MemMove(
     IntIndex = DstOffset;
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
     {
-        Dst[IntIndex] = (
-            (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift)
-        );
+        DstTmp = (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift);
+        Dst[IntIndex] = DstTmp;
+
         // Shift = (Shift + 8) % 16;
         Shift = (Shift + 8) & 15;
         // IntIndex += ByteIndex % 2;
@@ -488,7 +490,7 @@ static final function int Add(
         Bw = B[U];
         Naw = Aw + Bw + Cc;
         Cc = Naw >>> 15;
-        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw);
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
     }
 
     return Cc;
@@ -522,7 +524,7 @@ static final function int Sub(
         Bw = B[U];
         Naw = Aw - Bw - Cc;
         CC = Naw >>> 31;
-        A[U] = (MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF); // @ALIGN-32-16.
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
     }
 
     return Cc;
@@ -884,6 +886,11 @@ static final function MulAddSmall(
     MLen = (M_BitLen + 15) >>> 4;
     MBlr = M_BitLen & 15;
 
+`if(`isdefined(FCDEBUG_MONTY))
+        `fcslog("MLen:" @ MLen);
+        `fcslog("MBlr:" @ MBlr);
+`endif
+
     /*
      * Principle: we estimate the quotient (x*2^15+z)/m by
      * doing a 30/15 division with the high words.
@@ -923,6 +930,11 @@ static final function MulAddSmall(
     else
     {
         A0 = (X[MLen] << (15 - MBlr)) | (X[MLen - 1] >>> MBlr);
+
+`if(`isdefined(FCDEBUG_MONTY))
+        `fcslog("A0:" @ A0);
+`endif
+
         // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
         MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
         X[1] = Z & 0xFFFF; // @ALIGN-32-16.
@@ -931,6 +943,13 @@ static final function MulAddSmall(
         B = (M[MLen] << (15 - MBlr)) | (M[MLen - 1] >>> MBlr);
     }
     Q = DivRem16(A, B,);
+
+`if(`isdefined(FCDEBUG_MONTY))
+    `fcslog("---------");
+    `fcslog("A:" @ A);
+    `fcslog("B:" @ B);
+    `fcslog("Q:" @ Q);
+`endif
 
     /*
      * We computed an estimate for q, but the real one may be q,
@@ -964,7 +983,7 @@ static final function MulAddSmall(
         Nxw = Xw - Zl;
         Cc += Nxw >>> 31;
         Nxw = Nxw & 0x7FFF;
-        X[U] = Nxw;
+        X[U] = Nxw & 0xFFFF; // @ALIGN-32-16.
         Tb = MUX(EQ(Nxw, Mw), Tb, GT(Nxw, Mw));
     }
 

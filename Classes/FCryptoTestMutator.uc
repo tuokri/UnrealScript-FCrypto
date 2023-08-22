@@ -366,72 +366,67 @@ private static final simulated function int BytesShouldBeEqual(
     return 1 - Good;
 }
 
-// NOTE: FAILS WITH LEADING ZEROS, USE ONLY FOR BIG INTEGERS
-// WITH EQUAL ACTUAL ARRAY LENGTH!
-// TODO: Better function.
 static final simulated function int BigIntsShouldBeEqual(
     const out array<int> A,
     const out array<int> B,
     optional string Msg = ""
 )
 {
+    local array<byte> ABytes;
+    local array<byte> BBytes;
+    local int ALen;
+    local int BLen;
+
+    ALen = ((A[0] + 15) & ~15) >>> 2;
+    BLen = ((B[0] + 15) & ~15) >>> 2;
+    class'FCryptoBigInt'.static.Encode(ABytes, ALen, A);
+    class'FCryptoBigInt'.static.Encode(BBytes, BLen, B);
+
+    return BytesShouldBeEqual(ABytes, BBytes, Msg);
+}
+
+static final simulated function LogIntArray(
+    const out array<int> Arr,
+    optional string Delimiter = " "
+)
+{
     local int I;
-    local array<int> ACopy;
-    local array<int> BCopy;
-    local bool bANonZeroFound;
-    local bool bBNonZeroFound;
+    local string ArrStr;
 
-    bANonZeroFound = false;
-    bBNonZeroFound = false;
-
-    // Strip leading zeros (very sloppily).
-    for (I = 0; I < A.Length; ++I)
+    ArrStr = "";
+    for (I = 0; I < Arr.Length; ++I)
     {
-        if (A[I] == 0 && !bANonZeroFound)
+        ArrStr $= ToHex(Arr[I]);
+        if (I < Arr.Length - 1 && Delimiter != "")
         {
-            continue;
+            ArrStr $= Delimiter;
         }
-        else
-        {
-            bANonZeroFound = true;
-        }
-
-        ACopy.AddItem(A[I]);
     }
 
-    for (I = 0; I < B.Length; ++I)
-    {
-        if (B[I] == 0 && !bBNonZeroFound)
-        {
-            continue;
-        }
-        else
-        {
-            bBNonZeroFound = true;
-        }
+    `fcslog(ArrStr);
+}
 
-        BCopy.AddItem(B[I]);
-    }
+static final simulated function int IntArraysShouldBeEqual(
+    const out array<int> A,
+    const out array<int> B,
+    optional string Msg = ""
+)
+{
+    local int I;
 
-    if (ACopy.Length != BCopy.Length)
+    if (A.Length != B.Length)
     {
-        `fcswarn("Mismatch: (A.Length != B.Length)" @ A.Length @ "!=" @ B.Length @ Msg);
-        `fcswarn("A:" @ class'FCryptoBigInt'.static.WordsToString(A));
-        `fcswarn("B:" @ class'FCryptoBigInt'.static.WordsToString(B));
-        `fcswarn("ACopy:" @ class'FCryptoBigInt'.static.WordsToString(ACopy));
-        `fcswarn("BCopy:" @ class'FCryptoBigInt'.static.WordsToString(BCopy));
+        `fcswarn("A.Length != B.Length" @ A.Length @ "!=" @ B.Length @ Msg);
         return 1;
     }
 
-    for (I = 0; I < ACopy.Length; ++I)
+    for (I = 0; I < A.Length; ++I)
     {
         if (A[I] != B[I])
         {
-            `fcswarn("Mismatch: (A != B)" @ Msg);
-            `fcswarn("A:" @ class'FCryptoBigInt'.static.WordsToString(A));
-            `fcswarn("B:" @ class'FCryptoBigInt'.static.WordsToString(B));
-            `fcswarn("ACopy:" @ class'FCryptoBigInt'.static.WordsToString(ACopy));
-            `fcswarn("BCopy:" @ class'FCryptoBigInt'.static.WordsToString(BCopy));
+            `fcswarn("A != B" @ Msg);
+            LogIntArray(A);
+            LogIntArray(B);
             `fcswarn("I:" @ I);
             return 1;
         }
@@ -449,54 +444,11 @@ static final simulated function int CheckEqz(
 )
 {
     local int XLen;
-    // local int ZLen;
-    // local int Good;
-    // local int U;
     local array<byte> Xb;
-    // local int Cmp;
 
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'FCryptoBigInt'.static.Encode(Xb, XLen, X);
     return BytesShouldBeEqual(Xb, Z, Msg);
-
-    // Good = 1;
-    // ZLen = Z.Length;
-
-    // // UnrealScript NOTE: ZLen is 0 in BearSSL
-    // // because mpz length is 0 for number 0. We have to
-    // // adjust here to match the functionality.
-    // if (ZLen == 1 && Z[0] == 0)
-    // {
-    //     ZLen = 0;
-    // }
-
-    // if (XLen < ZLen)
-    // {
-    //     `fcswarn("XLen < ZLen:" @ XLen @ ZLen);
-    //     Good = 0;
-    // }
-    // else if (XLen > ZLen)
-    // {
-    //     for (U = XLen; U > ZLen; --U)
-    //     {
-    //         if (Xb[XLen - U] != 0)
-    //         {
-    //             Good = 0;
-    //             break;
-    //         }
-    //     }
-    // }
-    // Cmp = class'FCryptoBigInt'.static.MemCmp_Bytes(
-    //     Xb, Z, ZLen, XLen + ZLen);
-    // Good = int(bool(Good) && (Cmp == 0));
-    // if (!bool(Good))
-    // {
-    //     `fcswarn("Mismatch:" @ "Cmp:" @ Cmp @ Msg);
-    //     LogBytes(Xb);
-    //     LogBytes(Z);
-    // }
-
-    // return 1 - Good;
 }
 
 static final simulated function string BytesWordsToString(
@@ -707,19 +659,116 @@ private final simulated function int TestMemory()
     local int Failures;
     local int XLen;
     local int MLen;
+    local int XLen0;
+    local int XLen1;
+    local int XLen2;
+    local int XLen3;
     local array<byte> XBytes;
     local array<byte> Expected;
+    local array<byte> In0;
+    local array<byte> In1;
+    local array<byte> In2;
+    local array<byte> In3;
+    local array<byte> Out0;
+    local array<byte> Out1;
+    local array<byte> Out2;
+    local array<byte> Out3;
     local array<int> X;
+    local array<int> XIn0;
+    local array<int> XIn1;
+    local array<int> XIn2;
+    local array<int> XIn3;
+    // local array<int> XOut0;
+    // local array<int> XOut1;
+    // local array<int> XOut2;
+    // local array<int> XOut3;
+    local array<byte> XBytes0;
+    local array<byte> XBytes1;
+    local array<byte> XBytes2;
+    local array<byte> XBytes3;
+    local array<int> MemoryIn0;
+    // local array<int> MemoryIn1;
+    local array<int> MemoryOut0;
+    // local array<int> MemoryOut1;
 
     Failures = 0;
+
+    MemoryIn0[0] = 0x4bc2;
+    MemoryIn0[1] = 0xcbea;
+    MemoryIn0[2] = 0xc810;
+    MemoryIn0[3] = 0xaa90;
+    MemoryIn0[4] = 0x9ab9;
+    MemoryIn0[5] = 0xbabd;
+    MemoryIn0[6] = 0x42a2;
+    MemoryIn0[7] = 0xa58c;
+    MemoryIn0[8] = 0xb873;
+    MemoryIn0[9] = 0x5da1;
+    MemoryOut0[0] = 0x4bc2;
+    MemoryOut0[1] = 0xaa90;
+    MemoryOut0[2] = 0x9ab9;
+    MemoryOut0[3] = 0xbabd;
+    MemoryOut0[4] = 0x42a2;
+    MemoryOut0[5] = 0xa58c;
+    MemoryOut0[6] = 0xb873;
+    MemoryOut0[7] = 0x5da1;
+    MemoryOut0[8] = 0xb873;
+    MemoryOut0[9] = 0x5da1;
+
+    // 4bc2cbeac810aa909ab9babd42a2a58cb8735da1 <-- original
+
+    // 4bc2cbeac810 DstBytes: aa909ab9babd42a2a58cb8735da1
+    // 4bc2aa909ab9babd42a2a58cb8735da1b8735da1 <-- result
+    // 4bc2 aa90 9ab9 babd 42a2 a58c b873 5da1 b873 5da1
+
+    class'FCryptoBigInt'.static.MemMove(MemoryIn0, MemoryIn0, SIZEOF_UINT16_T * 7, 1, 3);
+    // class'FCryptoBigInt'.static.MemMove(MemoryIn1);
+
+    Failures += IntArraysShouldBeEqual(MemoryIn0, MemoryOut0);
+    // Failures += IntArraysShouldBeEqual();
 
     class'FCryptoBigInt'.static.BytesFromHex(XBytes, "8815d9cd39874d1931329255ecd391");
     class'FCryptoBigInt'.static.BytesFromHex(Expected, "8815d915d9cd39874d1931329255ecd");
 
     class'FCryptoBigInt'.static.Decode(X, XBytes, XBytes.Length);
 
+    class'FCryptoBigInt'.static.BytesFromHex(In0, "884753771b798de8756166bd568754b1");
+    class'FCryptoBigInt'.static.BytesFromHex(In1, "0e2c492e944ca4f1a6e62783b6c243b21");
+    class'FCryptoBigInt'.static.BytesFromHex(In2, "5c5c89702d405b397661e064d453ed29d3");
+    class'FCryptoBigInt'.static.BytesFromHex(In3, "8055d419f13a6211673dc61602306efe8");
+    class'FCryptoBigInt'.static.BytesFromHex(Out0, "4753771b798de8756166bd568754b154b1");
+    class'FCryptoBigInt'.static.BytesFromHex(Out1, "2c492e944ca4f1a6e62783b6c243b213b21");
+    class'FCryptoBigInt'.static.BytesFromHex(Out2, "5c89702d405b397661e064d453ed29d329d3");
+    class'FCryptoBigInt'.static.BytesFromHex(Out3, "55d419f13a6211673dc61602306efe8fe8");
+
+    class'FCryptoBigInt'.static.Decode(XIn0, In0, In0.Length);
+    class'FCryptoBigInt'.static.Decode(XIn1, In1, In1.Length);
+    class'FCryptoBigInt'.static.Decode(XIn2, In2, In2.Length);
+    class'FCryptoBigInt'.static.Decode(XIn3, In3, In3.Length);
+
     // MLen = (M[0] + 15) >>> 4;
     MLen = 9;
+
+    // Static cases generated with BearSSL test_math.
+    class'FCryptoBigInt'.static.MemMove(XIn0, XIn0, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+    class'FCryptoBigInt'.static.MemMove(XIn1, XIn1, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+    class'FCryptoBigInt'.static.MemMove(XIn2, XIn2, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+    class'FCryptoBigInt'.static.MemMove(XIn3, XIn3, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+
+    XLen0 = ((XIn0[0] + 15) & ~15) >>> 2;
+    XLen1 = ((XIn1[0] + 15) & ~15) >>> 2;
+    XLen2 = ((XIn2[0] + 15) & ~15) >>> 2;
+    XLen3 = ((XIn3[0] + 15) & ~15) >>> 2;
+
+    class'FCryptoBigInt'.static.Encode(XBytes0, XLen0, XIn0);
+    class'FCryptoBigInt'.static.Encode(XBytes1, XLen1, XIn1);
+    class'FCryptoBigInt'.static.Encode(XBytes2, XLen2, XIn2);
+    class'FCryptoBigInt'.static.Encode(XBytes3, XLen3, XIn3);
+
+    Failures += BytesShouldBeEqual(XBytes0, Out0, "XBytes0 != Out0");
+    Failures += BytesShouldBeEqual(XBytes1, Out1, "XBytes1 != Out1");
+    Failures += BytesShouldBeEqual(XBytes2, Out2, "XBytes2 != Out2");
+    Failures += BytesShouldBeEqual(XBytes3, Out3, "XBytes3 != Out3");
+
     // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
     class'FCryptoBigInt'.static.MemMove(
         X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
@@ -818,12 +867,15 @@ private final simulated function int TestMath()
     local array<byte> V;
     local array<byte> KArr;
     local array<byte> XEncoded;
+    local array<byte> MontyMaExpectedAfterDecodeMod;
+    local array<byte> TempBytes;
     local array<int> Mp;
     local array<int> Ma;
     local array<int> Mb;
     local array<int> Mv;
     local array<int> Mt1;
     local array<int> MontyMaBuf;
+    local int TempLen;
     local int XLen;
     local int Failures;
     local int K;
@@ -836,6 +888,7 @@ private final simulated function int TestMath()
     local int Result;
     local int Remainder;
     local int HardCodedMontyFail;
+    local int MontyDecodeResult;
     local string BigIntString;
 
     // BearSSL assumes all operands caller-allocated.
@@ -963,13 +1016,34 @@ private final simulated function int TestMath()
         MontyMaAfter_Bytes.Length
     );
 
-    // TODO: nasty bug somewhere in DecodeMod or ToMonty (or both).
-    // Generate some static example cases with BearSSL and then
-    // implement them here in this test suite.
+    class'FCryptoBigInt'.static.BytesFromHex(
+        MontyMaExpectedAfterDecodeMod,
+        "884753771B798D0E87561606BD568754B1"
+    );
+
     MontyMaBuf = MontyMaBefore;
-    class'FCryptoBigInt'.static.DecodeMod(MontyMaBuf, MontyEa, MontyEa.Length, MontyMp);
+    MontyDecodeResult = class'FCryptoBigInt'.static.DecodeMod(MontyMaBuf, MontyEa, MontyEa.Length, MontyMp);
+
+    TempLen = ((MontyMaBuf[0] + 15) & ~15) >>> 2;
+    class'FCryptoBigInt'.static.Encode(
+        TempBytes,
+        TempLen,
+        MontyMaBuf
+    );
+    Failures += BytesShouldBeEqual(
+        TempBytes,
+        MontyMaExpectedAfterDecodeMod,
+        "TempBytes != MontyMaExpectedAfterDecodeMod"
+    );
+
     class'FCryptoBigInt'.static.ToMonty(MontyMaBuf, MontyMp);
     HardCodedMontyFail += BigIntsShouldBeEqual(MontyMaBuf, MontyMaAfter, "Hardcoded Monty Test");
+
+    if (MontyDecodeResult != 1)
+    {
+        Failures += 1;
+        `fcwarn("MontyDecodeResult != 1, actual value:" @ MontyDecodeResult);
+    }
 
     if (HardCodedMontyFail > 0)
     {
@@ -981,9 +1055,6 @@ private final simulated function int TestMath()
     }
 
     Failures += HardCodedMontyFail;
-
-    // TODO: REMOVE ME.
-    return Failures;
 
     KArr.Length = 4;
     for (K = 2; K <= 128; ++K)
@@ -1005,8 +1076,6 @@ private final simulated function int TestMath()
             // TODO: mpz_rrandomb.
             IntToBytes(K + 60, KArr);
             RandomBigInt(V, KArr);
-            // `fclog("V Bytes:");
-            // LogBytes(V);
 
             Test1 = 10;
             Test2 = 2;

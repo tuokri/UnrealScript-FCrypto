@@ -2,7 +2,7 @@
 `define FCDEBUG 1
 
 // Monty specific extra debugging.
-`define FCDEBUG_MONTY 1
+// `define FCDEBUG_MONTY 1
 
 `define fclog(msg, cond, tag) \
     `log(self.class.name $ "::" $ GetFuncName() $ "(): " $ `msg, \
