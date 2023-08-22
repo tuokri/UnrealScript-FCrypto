@@ -338,7 +338,7 @@ static final function MemSet_UInt16(
  * Offset is the number of byte values
  * to ignore from the beginning of S.
  */
-private static final function MemSet_Byte(
+static final function MemSet_Byte(
     out array<byte> S,
     byte C,
     int NumBytes,

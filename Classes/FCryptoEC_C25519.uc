@@ -212,7 +212,7 @@ static final function int Mul(
     X2[1] = 19;
     class'FCryptoBigInt'.static.MemMove(Z3, X2, ILEN);
 
-    class'FCryptoBigInt'.static.MemSet_UInt16(K, 0, SIZEOF_UINT16_T - KBLen);
+    class'FCryptoBigInt'.static.MemSet_Byte(K, 0, SIZEOF_UINT16_T - KBLen);
     class'FCryptoBigInt'.static.MemMove(K, Kb, KBLen, SIZEOF_UINT16_T - KBLen);
     K[31] = K[31] & 0xF8;
     K[0] = K[0] & 0x7F;
