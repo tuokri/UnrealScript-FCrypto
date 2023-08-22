@@ -242,6 +242,7 @@ private final simulated function RunTests()
         Failures += RunTest(TestMemory, nameof(TestMemory), I);
         Failures += RunTest(TestOperations, nameof(TestOperations), I);
         Failures += RunTest(TestMath, nameof(TestMath), I);
+        Failures += RunTest(TestCrypto, nameof(TestCrypto), I);
     }
 
     UnClock(GlobalClock);
@@ -1215,6 +1216,11 @@ private final simulated function int TestMath()
     }
 
     return Failures;
+}
+
+private final simulated function int TestCrypto()
+{
+    return 0;
 }
 
 DefaultProperties

@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2023 Tuomo Kriikkula <tuokri@tuta.io>
- * Copyright (c) 2017 Thomas Pornin <pornin@bolet.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -22,7 +21,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 class FCryptoUtils extends Object
     notplaceable;
 
