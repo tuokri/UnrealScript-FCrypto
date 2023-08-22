@@ -123,9 +123,9 @@ static final function int Mul(
 )
 {
     /*
-	 * The a[] and b[] arrays have an extra word to allow for
-	 * decoding without using br_i15_decode_reduce().
-	 */
+     * The a[] and b[] arrays have an extra word to allow for
+     * decoding without using br_i15_decode_reduce().
+     */
     local array<int> X1;
     local array<int> X2;
     local array<int> X3;
@@ -144,17 +144,81 @@ static final function int Mul(
     local int Swap;
     local int I;
 
+    X1.Length = 18;
+    X2.Length = 18;
+    X3.Length = 18;
+    Z2.Length = 18;
+    Z3.Length = 18;
+    A.Length = 19;
+    Aa.Length = 18;
+    B.Length = 19;
+    Bb.Length = 18;
+    C.Length = 18;
+    D.Length = 18;
+    E.Length = 18;
+    Da.Length = 18;
+    Cb.Length = 18;
+    K.Length = 32;
+
     /*
-	 * Points are encoded over exactly 32 bytes. Multipliers must fit
-	 * in 32 bytes as well.
-	 * RFC 7748 mandates that the high bit of the last point byte must
-	 * be ignored/cleared.
-	 */
+     * Points are encoded over exactly 32 bytes. Multipliers must fit
+     * in 32 bytes as well.
+     * RFC 7748 mandates that the high bit of the last point byte must
+     * be ignored/cleared.
+     */
     if (GLen != 32 || KBLen > 32)
     {
         return 0;
     }
     G[31] = G[31] & 127; // 0x7F.
+
+    /*
+     * Byteswap the point encoding, because it uses little-endian, and
+     * the generic decoding routine uses big-endian.
+     */
+    ByteSwap(G);
+
+    /*
+     * Decode the point ('u' coordinate). This should be reduced
+     * modulo p, but we prefer to avoid the dependency on
+     * br_i15_decode_reduce(). Instead, we use br_i15_decode_mod()
+     * with a synthetic modulus of value 2^255 (this must work
+     * since G was truncated to 255 bits), then use a conditional
+     * subtraction. We use br_i15_decode_mod() and not
+     * br_i15_decode(), because the ec_prime_i15 implementation uses
+     * the former but not the latter.
+     *    br_i15_decode_reduce(a, G, 32, C255_P);
+     */
+    class'FCryptoBigInt'.static.Zero(B, 0x111);
+    B[18] = 1;
+    class'FCryptoBigInt'.static.DecodeMod(A, G, 32, B);
+    A[0] = 0x110;
+    class'FCryptoBigInt'.static.Sub(
+        A,
+        default.C255_P,
+        class'FCryptoBigInt'.static.NOT(
+            class'FCryptoBigInt'.static.Sub(A, default.C255_P, 0)
+        )
+    );
+
+    /*
+     * Initialise variables x1, x2, z2, x3 and z3. We set all of them
+     * into Montgomery representation.
+     */
+    class'FCryptoBigInt'.static.MontyMul(X1, A, default.C255_R2, default.C255_P, P0I);
+    class'FCryptoBigInt'.static.MemMove(X3, X1, ILEN);
+    class'FCryptoBigInt'.static.Zero(Z2, default.C255_P[0]);
+    class'FCryptoBigInt'.static.MemMove(X2, Z2, ILEN);
+    X2[1] = 19;
+    class'FCryptoBigInt'.static.MemMove(Z3, X2, ILEN);
+
+    class'FCryptoBigInt'.static.MemSet_UInt16(K, 0, SIZEOF_UINT16_T - KBLen);
+    class'FCryptoBigInt'.static.MemMove(K, Kb, KBLen, SIZEOF_UINT16_T - KBLen);
+    K[31] = K[31] & 0xF8;
+    K[0] = K[0] & 0x7F;
+    K[0] = K[0] | 0x40;
+
+    Swap = 0;
 }
 
 DefaultProperties

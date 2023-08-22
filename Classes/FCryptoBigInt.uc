@@ -307,7 +307,7 @@ static final function MemMove(
  * Offset is the number of uint16_t values
  * to ignore from the beginning of S.
  */
-private static final function MemSet_UInt16(
+static final function MemSet_UInt16(
     out array<int> S,
     byte C,
     int NumBytes,
