@@ -1180,42 +1180,37 @@ private final simulated function int TestMath()
 
             class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
             class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
-            // GMPClient.Begin();
-            // GMPClient.Var("T1", "");
-            // GMPClient.Var("A", BytesWordsToString(A, ""));
-            // GMPClient.Var("P", BytesWordsToString(P, ""));
-            // // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
-            // GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
-            // GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
-            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            // GMPClient.Eq("T1", Ma, "T1 == Ma (DecodeMod+ToMonty)");
-            // GMPClient.Eq("T1", Ma);
-            // GMPClient.End();
+            GMPClient.Begin();
+            GMPClient.Var("T1", "");
+            GMPClient.Var("A", BytesWordsToString(A, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
+            // ((k + impl->word_size - 1) / impl->word_size) * impl->word_size
+            GMPClient.Var("C", ToHex(((K + WORD_SIZE - 1) / WORD_SIZE) * WORD_SIZE));
+            GMPClient.Op("mpz_mul_2exp", "T1", "A", "C");
+            GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Ma, "T1 == Ma (DecodeMod+ToMonty)");
+            GMPClient.End();
 
-            // class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
-            // GMPClient.Begin();
-            // GMPClient.Var("A", BytesToString(A, ""));
-            // GMPClient.Op("nop", "A", "A", "A");
-            // GMPClient.Eq("A", Ma, "A == Ma (FromMonty)");
-            // GMPClient.End();
-            // GMPClient.Var("A", BytesWordsToString(A, ""));
-            // GMPClient.Op("nop", "A", "A", "A");
-            // GMPClient.Eq("A", Ma);
-            // GMPClient.End();
+            class'FCryptoBigInt'.static.FromMonty(Ma, Mp, MP0I);
+            GMPClient.Begin();
+            GMPClient.Var("A", BytesWordsToString(A, ""));
+            GMPClient.Op("nop", "A", "A", "A");
+            GMPClient.Eq("A", Ma, "A == Ma (FromMonty)");
+            GMPClient.End();
 
-            // class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
-            // class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
-            // class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
-            // class'FCryptoBigInt'.static.MontyMul(Mt1, Ma, Mb, Mp, MP0I);
-            // GMPClient.Begin();
-            // GMPClient.Var("T1", "0");
-            // GMPClient.Var("A", BytesWordsToString(A, ""));
-            // GMPClient.Var("B", BytesWordsToString(B, ""));
-            // GMPClient.Var("P", BytesWordsToString(P, ""));
-            // GMPClient.Op("mpz_mul", "T1", "A", "B");
-            // GMPClient.Op("mpz_mod", "T1", "T1", "P");
-            // GMPClient.Eq("T1", Mt1);
-            // GMPClient.End();
+            class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
+            class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
+            class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
+            class'FCryptoBigInt'.static.MontyMul(Mt1, Ma, Mb, Mp, MP0I);
+            GMPClient.Begin();
+            GMPClient.Var("T1", "0");
+            GMPClient.Var("A", BytesWordsToString(A, ""));
+            GMPClient.Var("B", BytesWordsToString(B, ""));
+            GMPClient.Var("P", BytesWordsToString(P, ""));
+            GMPClient.Op("mpz_mul", "T1", "A", "B");
+            GMPClient.Op("mpz_mod", "T1", "T1", "P");
+            GMPClient.Eq("T1", Mt1);
+            GMPClient.End();
         }
     }
 
