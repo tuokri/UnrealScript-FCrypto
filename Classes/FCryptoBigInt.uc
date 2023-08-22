@@ -125,7 +125,7 @@ static final operator(20) FCryptoBigInt - (FCryptoBigInt A, FCryptoBigInt B)
 /*
  * Negate a boolean.
  */
-`fcprivate static final function int NOT(int Ctl)
+static final function int NOT(int Ctl)
 {
     return Ctl ^ 1;
 }
@@ -358,7 +358,7 @@ private static final function MemSet_Byte(
  * Offsets are the number of uint16_t values
  * to ignore from the beginning of each array.
  */
-private static final function MemCpy(
+static final function MemCpy(
     out array<int> Dst,
     const out array<int> Src,
     int NumBytes,
