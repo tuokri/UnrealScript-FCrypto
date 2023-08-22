@@ -44,6 +44,8 @@ var private array<string> Responses;
 var private int TransactionID;
 var private array<string> TransactionStack;
 
+var bool bDone;
+
 struct PendingCheck
 {
     var string TestName;
@@ -280,6 +282,16 @@ event Opened()
     `fclog("opened");
 }
 
+event Closed()
+{
+    `fclog("closed");
+    if (!bDone)
+    {
+        `fclog("not done, retrying connection...");
+        ConnectToServer();
+    }
+}
+
 event ReceivedLine(string Line)
 {
     // `fclog(Line @ Responses.Length);
@@ -288,6 +300,8 @@ event ReceivedLine(string Line)
 
 DefaultProperties
 {
+    bDone=False
+
     ChecksDone=0
     Failures=0
     LastFailuresLogged=0

@@ -46,6 +46,14 @@ var(FCryptoTests) editconst const array<byte> Bytes_0;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
 var(FCryptoTests) editconst const array<byte> Bytes_683384335291162482276352519;
 
+var(FCryptoTests) editconst array<int> MontyMaBefore;
+var(FCryptoTests) editconst array<byte> MontyMaBefore_Bytes;
+var(FCryptoTests) editconst array<int> MontyMaAfter;
+var(FCryptoTests) editconst array<byte> MontyMaAfter_Bytes;
+var(FCryptoTests) editconst array<int> MontyMp;
+var(FCryptoTests) editconst array<byte> MontyMp_Bytes;
+var(FCryptoTests) editconst array<byte> MontyEa;
+
 // Run tests with a delay to allow the game to finish loading etc.
 // Overwrite with launch option ?TestDelay=FLOAT_VALUE.
 var(FCryptoTests) editconst float TestDelay;
@@ -186,9 +194,11 @@ private final simulated function RunTests()
     local int K;
     local int Failures;
 
-    while (!GMPClient.IsConnected())
+    if (!GMPClient.IsConnected())
     {
         `fclog("GMPClient not connected, state:" @ GMPClient.LinkState);
+        SetTimer(0.1, False, nameof(RunTests));
+        return;
     }
 
     if (!bRandPrimesRequested)
@@ -208,8 +218,8 @@ private final simulated function RunTests()
     if (bRandPrimesRequested && (RandomPrimes.Length < 1270))
     {
         `fclog("RandomPrimes.Length:"
-            @ RandomPrimes.Length @ "checking again in 0.01...");
-        SetTimer(0.01, False, nameof(RunTests));
+            @ RandomPrimes.Length @ "checking again...");
+        SetTimer(0.0000001, False, nameof(RunTests));
         return;
     }
 
@@ -239,6 +249,8 @@ private final simulated function RunTests()
     {
         `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
     }
+
+    GMPClient.bDone = True;
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -347,6 +359,80 @@ private static final simulated function int BytesShouldBeEqual(
     }
 
     return 1 - Good;
+}
+
+// NOTE: FAILS WITH LEADING ZEROS, USE ONLY FOR BIG INTEGERS
+// WITH EQUAL ACTUAL ARRAY LENGTH!
+// TODO: Better function.
+static final simulated function int BigIntsShouldBeEqual(
+    const out array<int> A,
+    const out array<int> B,
+    optional string Msg = ""
+)
+{
+    local int I;
+    local array<int> ACopy;
+    local array<int> BCopy;
+    local bool bANonZeroFound;
+    local bool bBNonZeroFound;
+
+    bANonZeroFound = false;
+    bBNonZeroFound = false;
+
+    // Strip leading zeros (very sloppily).
+    for (I = 0; I < A.Length; ++I)
+    {
+        if (A[I] == 0 && !bANonZeroFound)
+        {
+            continue;
+        }
+        else
+        {
+            bANonZeroFound = true;
+        }
+
+        ACopy.AddItem(A[I]);
+    }
+
+    for (I = 0; I < B.Length; ++I)
+    {
+        if (B[I] == 0 && !bBNonZeroFound)
+        {
+            continue;
+        }
+        else
+        {
+            bBNonZeroFound = true;
+        }
+
+        BCopy.AddItem(B[I]);
+    }
+
+    if (ACopy.Length != BCopy.Length)
+    {
+        `fcswarn("Mismatch: (A.Length != B.Length)" @ A.Length @ "!=" @ B.Length @ Msg);
+        `fcswarn("A:" @ class'FCryptoBigInt'.static.WordsToString(A));
+        `fcswarn("B:" @ class'FCryptoBigInt'.static.WordsToString(B));
+        `fcswarn("ACopy:" @ class'FCryptoBigInt'.static.WordsToString(ACopy));
+        `fcswarn("BCopy:" @ class'FCryptoBigInt'.static.WordsToString(BCopy));
+        return 1;
+    }
+
+    for (I = 0; I < ACopy.Length; ++I)
+    {
+        if (A[I] != B[I])
+        {
+            `fcswarn("Mismatch: (A != B)" @ Msg);
+            `fcswarn("A:" @ class'FCryptoBigInt'.static.WordsToString(A));
+            `fcswarn("B:" @ class'FCryptoBigInt'.static.WordsToString(B));
+            `fcswarn("ACopy:" @ class'FCryptoBigInt'.static.WordsToString(ACopy));
+            `fcswarn("BCopy:" @ class'FCryptoBigInt'.static.WordsToString(BCopy));
+            `fcswarn("I:" @ I);
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 // Compare BigInt and GMP exported bytes.
@@ -642,9 +728,9 @@ private final simulated function int TestMemory()
     return Failures;
 }
 
-`if(`isdefined(FCDEBUG))
 private final simulated function int TestOperations()
 {
+`if(`isdefined(FCDEBUG))
     local array<int> X;
     local int Test;
     local int Test2;
@@ -712,13 +798,11 @@ private final simulated function int TestOperations()
     // Failures += IntsShouldBeEqual(Result, 1, "GE");
 
     return Failures;
-}
 `else
-{
     `fcslog("Not debugging, skipping...");
     return 0;
-}
 `endif
+}
 
 private final simulated function int TestMath()
 {
@@ -734,6 +818,7 @@ private final simulated function int TestMath()
     local array<int> Mb;
     local array<int> Mv;
     local array<int> Mt1;
+    local array<int> MontyMaBuf;
     local int XLen;
     local int Failures;
     local int K;
@@ -745,6 +830,7 @@ private final simulated function int TestMath()
     local int Test2;
     local int Result;
     local int Remainder;
+    local int HardCodedMontyFail;
     local string BigIntString;
 
     // BearSSL assumes all operands caller-allocated.
@@ -809,6 +895,89 @@ private final simulated function int TestMath()
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
     Failures += BytesShouldBeEqual(XEncoded, Bytes_683384335291162482276352519, "XEncoded");
     X.Length = 0;
+
+    HardCodedMontyFail = 0;
+
+    class'FCryptoBigInt'.static.BytesFromHex(
+        MontyEa,
+        "888EA7DC6FCC68E87AC2C1AF6B43D4B1"
+    );
+
+/*
+------------------------- before monty
+ea:
+888EA7DC6FCC68E87AC2C1AF6B43D4B1
+ma:
+ 0086 0CC6 26E4 6E9B 1647 1536 134E 07EE 130F (9, 136, 8, 8)
+mp:
+ 0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
+ma bytes:
+86198C9B9374D96472A6C4D383F7130F
+mp bytes:
+89F34642FB8E46074FC7B4837B265DC3
+------------------------- after monty
+ma:
+ 004C 008E 6E16 7B76 21B2 06C6 0435 1F56 2CB8 (9, 136, 8, 8)
+mp:
+ 0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
+ma bytes:
+4C011DB85BDBB21B20D8C10D4FAB2CB8
+-------------------------
+-------------------------
+-------------------------
+ done.
+
+
+
+ */
+
+    class'FCryptoBigInt'.static.BytesFromHex(
+        MontyMaBefore_Bytes,
+        "86198C9B9374D96472A6C4D383F7130F"
+    );
+    class'FCryptoBigInt'.static.Decode(
+        MontyMaBefore,
+        MontyMaBefore_Bytes,
+        MontyMaBefore_Bytes.Length
+    );
+
+    class'FCryptoBigInt'.static.BytesFromHex(
+        MontyMp_Bytes,
+        "89F34642FB8E46074FC7B4837B265DC3"
+    );
+    class'FCryptoBigInt'.static.Decode(
+        MontyMp,
+        MontyMp_Bytes,
+        MontyMp_Bytes.Length
+    );
+
+    class'FCryptoBigInt'.static.BytesFromHex(
+        MontyMaAfter_Bytes,
+        "4C011DB85BDBB21B20D8C10D4FAB2CB8"
+    );
+    class'FCryptoBigInt'.static.Decode(
+        MontyMaAfter,
+        MontyMaAfter_Bytes,
+        MontyMaAfter_Bytes.Length
+    );
+
+    // TODO: nasty bug somewhere in DecodeMod or ToMonty (or both).
+    // Generate some static example cases with BearSSL and then
+    // implement them here in this test suite.
+    MontyMaBuf = MontyMaBefore;
+    class'FCryptoBigInt'.static.DecodeMod(MontyMaBuf, MontyEa, MontyEa.Length, MontyMp);
+    class'FCryptoBigInt'.static.ToMonty(MontyMaBuf, MontyMp);
+    HardCodedMontyFail += BigIntsShouldBeEqual(MontyMaBuf, MontyMaAfter, "Hardcoded Monty Test");
+
+    if (HardCodedMontyFail > 0)
+    {
+        `fcwarn("MontyMaBefore :" @ class'FCryptoBigInt'.static.WordsToString(MontyMaBefore));
+        `fcwarn("MontyMaAfter  :" @ class'FCryptoBigInt'.static.WordsToString(MontyMaAfter));
+        `fcwarn("MontyMp       :" @ class'FCryptoBigInt'.static.WordsToString(MontyMp));
+        `fcwarn("MontyEa       :" @ BytesWordsToString(MontyEa));
+    }
+
+    Failures += HardCodedMontyFail;
 
     KArr.Length = 4;
     for (K = 2; K <= 128; ++K)
@@ -933,10 +1102,6 @@ private final simulated function int TestMath()
                 `fcwarn("Mp   :" @ class'FCryptoBigInt'.static.WordsToString(Mp));
                 `fcwarn("Ctl2 :" @ Ctl2);
             }
-
-            // TODO: nasty bug somewhere in DecodeMod or ToMonty (or both).
-            // Generate some static example cases with BearSSL and then
-            // implement them here in this test suite.
 
             class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
             class'FCryptoBigInt'.static.ToMonty(Ma, Mp);
