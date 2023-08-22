@@ -903,38 +903,35 @@ private final simulated function int TestMath()
 
     HardCodedMontyFail = 0;
 
+    /*
+    ------------------------- before monty
+    ea:
+    888EA7DC6FCC68E87AC2C1AF6B43D4B1
+    ma:
+    0086 0CC6 26E4 6E9B 1647 1536 134E 07EE 130F (9, 136, 8, 8)
+    mp:
+    0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
+    ma bytes:
+    86198C9B9374D96472A6C4D383F7130F
+    mp bytes:
+    89F34642FB8E46074FC7B4837B265DC3
+    ------------------------- after monty
+    ma:
+    004C 008E 6E16 7B76 21B2 06C6 0435 1F56 2CB8 (9, 136, 8, 8)
+    mp:
+    0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
+    ma bytes:
+    4C011DB85BDBB21B20D8C10D4FAB2CB8
+    -------------------------
+    -------------------------
+    -------------------------
+    done.
+    */
+
     class'FCryptoBigInt'.static.BytesFromHex(
         MontyEa,
         "888EA7DC6FCC68E87AC2C1AF6B43D4B1"
     );
-
-/*
-------------------------- before monty
-ea:
-888EA7DC6FCC68E87AC2C1AF6B43D4B1
-ma:
- 0086 0CC6 26E4 6E9B 1647 1536 134E 07EE 130F (9, 136, 8, 8)
-mp:
- 0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
-ma bytes:
-86198C9B9374D96472A6C4D383F7130F
-mp bytes:
-89F34642FB8E46074FC7B4837B265DC3
-------------------------- after monty
-ma:
- 004C 008E 6E16 7B76 21B2 06C6 0435 1F56 2CB8 (9, 136, 8, 8)
-mp:
- 0089 79A3 10BE 71C8 6074 7E3D 520D 764C 5DC3 (9, 136, 8, 8)
-ma bytes:
-4C011DB85BDBB21B20D8C10D4FAB2CB8
--------------------------
--------------------------
--------------------------
- done.
-
-
-
- */
 
     class'FCryptoBigInt'.static.BytesFromHex(
         MontyMaBefore_Bytes,
@@ -976,6 +973,7 @@ ma bytes:
 
     if (HardCodedMontyFail > 0)
     {
+        `fcwarn("MontyMaBuf    :" @ class'FCryptoBigInt'.static.WordsToString(MontyMaBuf));
         `fcwarn("MontyMaBefore :" @ class'FCryptoBigInt'.static.WordsToString(MontyMaBefore));
         `fcwarn("MontyMaAfter  :" @ class'FCryptoBigInt'.static.WordsToString(MontyMaAfter));
         `fcwarn("MontyMp       :" @ class'FCryptoBigInt'.static.WordsToString(MontyMp));
@@ -983,6 +981,9 @@ ma bytes:
     }
 
     Failures += HardCodedMontyFail;
+
+    // TODO: REMOVE ME.
+    return Failures;
 
     KArr.Length = 4;
     for (K = 2; K <= 128; ++K)

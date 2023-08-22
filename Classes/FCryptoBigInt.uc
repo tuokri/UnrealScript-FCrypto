@@ -940,7 +940,7 @@ static final function MulAddSmall(
      * that the "true" multiplier will be q+1, q or q-1, and q is
      * in the 0000..7FFF range.
      */
-    Q = MUX(EQ(B, A0), 0x7FFF, Q - 1 + ((Q - 1)) >>> 31);
+    Q = MUX(EQ(B, A0), 0x7FFF, Q - 1 + ((Q - 1) >>> 31));
 
     /*
      * We subtract q*m from x (x has an extra high word of value 'hi').
@@ -1151,10 +1151,33 @@ static final function ToMonty(
 {
     local int K;
 
+`if(`isdefined(FCDEBUG_MONTY))
+    `fcslog("-----------ToMonty-----------------");
+    `fcslog("M:" @ class'FCryptoBigInt'.static.WordsToString(M));
+`endif
+
     for (K = (M[0] + 15) >>> 4; K > 0; --K)
     {
+
+`if(`isdefined(FCDEBUG_MONTY))
+        `fcslog("Before MulAddSmall");
+        `fcslog("K:" @ K);
+        `fcslog("X:" @ class'FCryptoBigInt'.static.WordsToString(X));
+`endif
+
         MulAddSmall(X, 0, M);
+
+`if(`isdefined(FCDEBUG_MONTY))
+        `fcslog("After MulAddSmall");
+        `fcslog("K:" @ K);
+        `fcslog("X:" @ class'FCryptoBigInt'.static.WordsToString(X));
+`endif
+
     }
+
+`if(`isdefined(FCDEBUG_MONTY))
+    `fcslog("-----------------------------------");
+`endif
 }
 
 /*
