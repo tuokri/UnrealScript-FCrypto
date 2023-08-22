@@ -197,6 +197,11 @@ private final simulated function RunTests()
     if (!GMPClient.IsConnected())
     {
         `fclog("GMPClient not connected, state:" @ GMPClient.LinkState);
+        if (GMPClient != None)
+        {
+            GMPClient.Close();
+            GMPClient.ConnectToServer();
+        }
         SetTimer(0.1, False, nameof(RunTests));
         return;
     }

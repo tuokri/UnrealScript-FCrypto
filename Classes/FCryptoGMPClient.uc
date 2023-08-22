@@ -285,11 +285,6 @@ event Opened()
 event Closed()
 {
     `fclog("closed");
-    if (!bDone)
-    {
-        `fclog("not done, retrying connection...");
-        ConnectToServer();
-    }
 }
 
 event ReceivedLine(string Line)
