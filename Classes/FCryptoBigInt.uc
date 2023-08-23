@@ -266,6 +266,8 @@ static final function MemMove(
     local array<byte> DstBytes;
     local int DstTmp;
 
+    DstBytes.Length = NumBytes;
+
     /*
      * Take all 16-bit integers from Src and put them
      * into DstBytes byte array, taking SrcOffset into account.
@@ -299,6 +301,35 @@ static final function MemMove(
         // IntIndex += ByteIndex % 2;
         IntIndex += ByteIndex & 1;
         Mask = 0xff << Shift;
+    }
+}
+
+static final function MemMove_Byte(
+    out array<byte> Dst,
+    const out array<byte> Src,
+    int NumBytes,
+    optional int DstOffset = 0,
+    optional int SrcOffset = 0
+)
+{
+    local int ByteIndex;
+    local int I;
+    local array<byte> DstBytes;
+
+    DstBytes.Length = NumBytes;
+
+    ByteIndex = 0;
+    I = SrcOffset;
+
+    while (ByteIndex < NumBytes)
+    {
+        DstBytes[ByteIndex++] = Src[I++];
+    }
+
+    ByteIndex = DstOffset;
+    for (I = 0; I < NumBytes; ++I)
+    {
+        Dst[ByteIndex++] = DstBytes[I];
     }
 }
 
@@ -366,6 +397,10 @@ static final function MemCpy(
     optional int SrcOffset = 0
 )
 {
+    // TODO: implement optimized MemCpy for
+    // non-overlapping arrays.
+    // TODO: check which parts originally used memcpy in BearSSL.
+
     MemMove(Dst, Src, NumBytes, DstOffset, SrcOffset);
 }
 

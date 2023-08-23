@@ -96,6 +96,25 @@ private static final function C255Sub(
 
     T.Length = 18;
 
+    class'FCryptoBigInt'.static.MemMove(T, A, SIZEOF_UINT16_T);
+    class'FCryptoBigInt'.static.Add(
+        T,
+        default.C255_P,
+        class'FCryptoBigInt'.static.Sub(T, B, 1)
+    );
+    class'FCryptoBigInt'.static.MemMove(D, T, SIZEOF_UINT16_T);
+}
+
+private static final function C255Mul(
+    out array<int> D,
+    const out array<int> A,
+    const out array<int> B
+)
+{
+    local array<int> T;
+
+    T.Length = 18;
+
     class'FCryptoBigInt'.static.MontyMul(T, A, B, default.C255_P, P0I);
     class'FCryptoBigInt'.static.MemMove(D, T, SIZEOF_UINT16_T);
 }
@@ -143,6 +162,8 @@ static final function int Mul(
     local array<byte> K;
     local int Swap;
     local int I;
+    local int Kt;
+    local int J;
 
     X1.Length = 18;
     X2.Length = 18;
@@ -213,13 +234,87 @@ static final function int Mul(
     class'FCryptoBigInt'.static.MemMove(Z3, X2, ILEN);
 
     class'FCryptoBigInt'.static.MemSet_Byte(K, 0, SIZEOF_UINT16_T - KBLen);
-    // TODO: MemMove_Byte?
-    // class'FCryptoBigInt'.static.MemMove(K, Kb, KBLen, SIZEOF_UINT16_T - KBLen);
+    class'FCryptoBigInt'.static.MemMove_Byte(K, Kb, KBLen, SIZEOF_UINT16_T - KBLen);
     K[31] = K[31] & 0xF8;
     K[0] = K[0] & 0x7F;
     K[0] = K[0] | 0x40;
 
     Swap = 0;
+    for (I = 254; I >= 0; --I)
+    {
+        Kt = (K[31 - (I >>> 3)] >>> (I & 7)) & 1;
+        Swap = Swap ^ Kt;
+        CSwap(X2, X3, Swap);
+        CSwap(Z2, Z3, Swap);
+        Swap = Kt;
+
+        C255Add(A, X2, Z2);
+        C255Mul(Aa, A, A);
+        C255Sub(B, X2, Z2);
+        C255Mul(Bb, B, B);
+        C255Sub(E, Aa, Bb);
+        C255Add(C, X3, Z3);
+        C255Sub(D, X3, Z3);
+        C255Mul(Da, D, A);
+        C255Mul(Cb, C, B);
+
+        C255Add(X3, Da, Cb);
+        C255Mul(X3, X3, X3);
+        C255Sub(Z3, Da, Cb);
+        C255Mul(Z3, Z3, Z3);
+        C255Mul(Z3, Z3, X1);
+        C255Mul(X2, Aa, Bb);
+        C255Mul(Z2, default.C255_A24, E);
+        C255Add(Z2, Z2, Aa);
+        C255Mul(Z2, E, Z2);
+    }
+
+    CSwap(X2, X3, Swap);
+    CSwap(Z2, Z3, Swap);
+
+    /*
+     * Inverse z2 with a modular exponentiation. This is a simple
+     * square-and-multiply algorithm; we mutualise most non-squarings
+     * since the exponent contains almost only ones.
+     */
+    class'FCryptoBigInt'.static.MemMove(A, Z2, ILEN);
+    for (I = 0; I < 15; ++I)
+    {
+        C255Mul(A, A, A);
+        C255Mul(A, A, Z2);
+    }
+    class'FCryptoBigInt'.static.MemMove(B, A, ILEN);
+    for (I = 0; I < 14; ++I)
+    {
+        for (J = 0; J < 16; ++J)
+        {
+            C255Mul(B, B, B);
+        }
+        C255Mul(B, B, A);
+    }
+    for (I = 14; I >= 0; --I)
+    {
+        C255Mul(B, B, B);
+        if (bool((0xFFEB >>> I) & 1))
+        {
+            C255Mul(B, Z2, B);
+        }
+    }
+    C255Mul(B, X2, B);
+
+    /*
+     * To avoid a dependency on br_i15_from_monty(), we use a
+     * Montgomery multiplication with 1.
+     *    memcpy(x2, b, ILEN);
+     *    br_i15_from_monty(x2, C255_P, P0I);
+     */
+    class'FCryptoBigInt'.static.Zero(A, default.C255_P[0]);
+    A[1] = 1;
+    class'FCryptoBigInt'.static.MontyMul(X2, A, B, default.C255_P, P0I);
+
+    class'FCryptoBigInt'.static.Encode(G, 32, X2);
+    ByteSwap(G);
+    return 1;
 }
 
 DefaultProperties
