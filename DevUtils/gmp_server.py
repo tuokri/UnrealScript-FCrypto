@@ -70,7 +70,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         print("done\n\n")
         sys.stdout.flush()
 
-    def calculate(self, cmd_data):
+    def calculate(self, cmd_data: str):
         t_id = ""
         if match := self.id_regex.match(cmd_data):
             t_id = match.group(1)
