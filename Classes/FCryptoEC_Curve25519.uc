@@ -22,14 +22,15 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-class FCryptoEC_C25519 extends Object
+class FCryptoEC_Curve25519 extends Object
+    implements(FCryptoEllipticCurve)
     abstract
     notplaceable;
 
 const SIZEOF_UINT16_T = 2;
 
-var private const array<byte> GEN;
-var private const array<byte> ORDER;
+var private const array<byte> _GEN;
+var private const array<byte> _ORDER;
 
 /*
  * Parameters for the field:
@@ -44,6 +45,24 @@ var private const array<int> C255_R2;
 var private const array<int> C255_A24;
 
 const ILEN = 32;
+
+static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
+{
+    Len = 32;
+    return default._GEN;
+}
+
+static function array<byte> Order(EFCEllipticCurve Curve, out int Len)
+{
+    Len = 32;
+    return default._ORDER;
+}
+
+static function int XOff(EFCEllipticCurve Curve, out int Len)
+{
+    Len = 32;
+    return 0;
+}
 
 private static final function CSwap(
     out array<int> A,
@@ -137,8 +156,9 @@ private static final function ByteSwap(
 static final function int Mul(
     out array<byte> G,
     int GLen,
-    const out array<byte> KB,
-    int KBLen
+    const out array<byte> Kb,
+    int KbLen,
+    EFCEllipticCurve Curve
 )
 {
     /*
@@ -317,13 +337,48 @@ static final function int Mul(
     return 1;
 }
 
+static final function int MulGen(
+    out array<byte> R,
+    const out array<byte> X,
+    int XLen,
+    EFCEllipticCurve Curve
+)
+{
+    local array<byte> G;
+    local int GLen;
+
+    G = Generator(Curve, GLen);
+    class'FCryptoBigInt'.static.MemMove_Byte(R, G, GLen);
+    Mul(R, GLen, X, XLen, Curve);
+    return GLen;
+}
+
+static function int MulAdd(
+    out array<byte> A,
+    const out array<byte> B,
+    int Len,
+    const out array<byte> X,
+    int XLen,
+    const out array<byte> Y,
+    int YLen,
+    EFCEllipticCurve Curve
+)
+{
+    /*
+     * We don't implement this method, since it is used for ECDSA
+     * only, and there is no ECDSA over Curve25519 (which instead
+     * uses EdDSA).
+     */
+    return 0;
+}
+
 DefaultProperties
 {
     // 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    GEN={(
+    _GEN={(
         9, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
@@ -334,7 +389,7 @@ DefaultProperties
     // 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     // 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     // 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-    ORDER={(
+    _ORDER={(
         127, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255,
         255, 255, 255, 255, 255, 255, 255, 255,
