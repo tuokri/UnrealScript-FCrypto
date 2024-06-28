@@ -104,3 +104,8 @@ for non-critical data.
 #### HMAC
 
 #### HKDF
+
+#### Development TODOs
+
+Set up GitHub Actions builds with UDK-Lite. Check [uscript-msgbug](https://github.com/tuokri/uscript-msgbuf/)
+for a reference on how to use UDK in CI builds.
