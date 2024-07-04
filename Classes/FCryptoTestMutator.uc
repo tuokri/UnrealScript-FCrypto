@@ -28,10 +28,18 @@
  * with mod commandlets not being found by VNGame.exe. This library was
  * developed against Rising Storm 2: Vietnam. Commandlets may work for
  * other UE3/UDK builds/games.
+ * TODO: UPDATE THIS TEXT BLOCK. COMMANDLETS **DO** WORK, BUT
+ *       THEY ARE RAN DIFFERENTLY THAN THE DOCS STATE. USE
+ *       'UDK.EXE RUN "COMMANDLETNAME"'. MUTATOR IS ALSO REQUIRED
+ *       FOR TICKING ACTORS SUCH AS TCP LINK.
  *
  * Run the tests with: Game.exe Level?mutator=FCrypto.FCryptoTestMutator [arguments]
- * E.g.:
+ * E.g., using Rising Storm 2 client to run the tests:
  * VNGame.exe VNTE-Cuchi?mutator=FCrypto.FCryptoTestMutator -log -useunpublished -nostartupmovies
+ *
+ * Using UDK server (e.g. from UDK-Lite) to run the tests:
+ * UDK.exe server Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?dedicated=true
+ *     -log -useunpublished -UNATTENDED -FORCELOGFLUSH
  */
 class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
@@ -60,6 +68,10 @@ var(FCryptoTests) editconst float TestDelay;
 // Number of times to repeat all test suites in a loop.
 // Overwrite with launch option ?NumTestLoops=INT_VALUE.
 var(FCryptoTests) editconst int NumTestLoops;
+
+var(FCryptoTests) bool bExitTimerSet;
+var(FCryptoTests) float ExitDelaySeconds;
+var(FCryptoTests) bool bTestsDone;
 
 var(FCryptoTests) editconst float GlobalStartTime;
 var(FCryptoTests) editconst float GlobalStopTime;
@@ -147,6 +159,25 @@ simulated event PreBeginPlay()
     super.PreBeginPlay();
 }
 
+simulated event Tick(float DeltaTime)
+{
+    super.Tick(DeltaTime);
+
+    if (GMPClient.bDone && !bExitTimerSet && bTestsDone)
+    {
+        `fclog("--- --- --- GMPClient done! Exiting in"
+            @ ExitDelaySeconds @ "seconds. --- --- ---");
+
+        bExitTimerSet = True;
+        SetTimer(ExitDelaySeconds, False, nameof(ExitTests));
+    }
+}
+
+private final simulated function ExitTests()
+{
+    ConsoleCommand("QUIT", True);
+}
+
 private delegate int TestSuite();
 
 private final simulated function int RunTest(
@@ -184,6 +215,8 @@ private final simulated function int RunTest(
     {
         `fclog("--- ALL" @ TestSuiteName @ "TESTS PASSED SUCCESSFULLY ---");
     }
+
+    bTestsDone = True;
 
     return Failures;
 }
@@ -255,8 +288,6 @@ private final simulated function RunTests()
     {
         `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
     }
-
-    GMPClient.bDone = True;
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -1231,6 +1262,10 @@ DefaultProperties
     NumTestLoops=1
     GlobalClock=0.0
     bRandPrimesRequested=False
+
+    bExitTimerSet=False
+    ExitDelaySeconds=3.0
+    bTestsDone=False
 
     TickGroup=TG_DuringAsyncWork
     TickFrequency=0

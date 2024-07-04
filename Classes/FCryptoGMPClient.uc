@@ -186,6 +186,8 @@ simulated event Tick(float DeltaTime)
         {
             `fcwarn("---" @ Failures @ "FAILURES DETECTED! ---");
         }
+
+        bDone = True;
     }
 
     super.Tick(DeltaTime);
