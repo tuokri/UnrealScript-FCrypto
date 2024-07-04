@@ -67,6 +67,8 @@ var(FCryptoTests) editconst float TestDelay;
 // Number of times to repeat all test suites in a loop.
 // Overwrite with launch option ?NumTestLoops=INT_VALUE.
 var(FCryptoTests) editconst int NumTestLoops;
+// Current test iteration.
+var(FCryptoTests) editconst int CurrentTestIteration;
 
 var(FCryptoTests) bool bExitTimerSet;
 var(FCryptoTests) float ExitDelaySeconds;
@@ -94,6 +96,20 @@ var(FCryptoTests) editconst int RandomPrimeIndex;
 
 // Whether to use random or pre-generated prime array.
 var(FCryptoTests) editconst bool bUseRandomPrimes;
+
+// Total number of test failures in all tests.
+var(FCryptoTests) int Failures;
+
+struct TestDelegatePair
+{
+    var delegate<TestSuite> TestDelegate;
+    var name TestName;
+};
+
+// Test suite functions to run in order.
+var(FCryptoTests) array<TestDelegatePair> TestDelegatesToRun;
+// Index to current running test in TestDelegatesToRun array.
+var(FCryptoTests) int CurrentTestDelegateIndex;
 
 var private bool bRandPrimesRequested;
 
@@ -155,6 +171,17 @@ function InitMutator(string Options, out string ErrorMessage)
 simulated event PreBeginPlay()
 {
     Utils = new (self) class'FCryptoUtils';
+
+    TestDelegatesToRun.Length = 4;
+    TestDelegatesToRun[0].TestDelegate = TestMemory;
+    TestDelegatesToRun[0].TestName = NameOf(TestMemory);
+    TestDelegatesToRun[1].TestDelegate = TestOperations;
+    TestDelegatesToRun[1].TestName = NameOf(TestOperations);
+    TestDelegatesToRun[2].TestDelegate = TestMath;
+    TestDelegatesToRun[2].TestName = NameOf(TestMath);
+    TestDelegatesToRun[3].TestDelegate = TestCrypto;
+    TestDelegatesToRun[3].TestName = NameOf(TestCrypto);
+
     super.PreBeginPlay();
 }
 
@@ -179,16 +206,64 @@ private final simulated function ExitTests()
 
 private delegate int TestSuite();
 
-private final simulated function int RunTest(
+private final simulated function RunNextTest()
+{
+    local delegate<TestSuite> NextTestFunction;
+    local name NextTestName;
+
+    `fclog("CurrentTestDelegateIndex=" $ CurrentTestDelegateIndex
+        @ "TestDelegatesToRun.Length=" $ TestDelegatesToRun.Length);
+
+    if (CurrentTestIteration >= NumTestLoops)
+    {
+        bTestsDone = True;
+        GMPClient.bTestMutatorDone = True;
+
+        UnClock(GlobalClock) ;
+        GlobalStopTime = Utils.GetSystemTimeStamp();
+
+        `fclog("--- TOTAL TIME       :" @ (GlobalStopTime - GlobalStartTime) @ "---");
+        `fclog("--- TOTAL CLOCK TIME :" @ GlobalClock @ "---");
+
+        if (Failures > 0)
+        {
+            `fcerror("--- ##ERROR##" @ Failures @ "TOTAL FAILED CHECKS ---");
+        }
+
+        return;
+    }
+
+    // Grab next test.
+    if (CurrentTestDelegateIndex < TestDelegatesToRun.Length)
+    {
+        bUseRandomPrimes = bool(CurrentTestIteration % 2);
+        `fclog("bUseRandomPrimes:" @ bUseRandomPrimes);
+
+        NextTestFunction = TestDelegatesToRun[CurrentTestDelegateIndex].TestDelegate;
+        NextTestName = TestDelegatesToRun[CurrentTestDelegateIndex].TestName;
+        ++CurrentTestDelegateIndex;
+        `fclog("NextTestFunction=" $ NextTestFunction);
+        RunTest(NextTestFunction, NextTestName, CurrentTestIteration);
+    }
+    // Reset test delegate index and start again.
+    else
+    {
+        CurrentTestDelegateIndex = 0;
+        CurrentTestIteration += 1;
+        SetTimer(0.001, False, NameOf(RunNextTest));
+    }
+}
+
+private final simulated function RunTest(
     delegate<TestSuite> TestSuiteDelegate,
     name TestSuiteName,
     int Iteration
 )
 {
+    local int TestFailures;
     local float ClockTime;
     // local float StartTime;
     // local float StopTime;
-    local int Failures;
 
     `fclog("--- RUNNING" @ TestSuiteName @ "(" $ Iteration $ ")" @ "---");
 
@@ -196,7 +271,7 @@ private final simulated function int RunTest(
     ClockTime = 0;
     Clock(ClockTime);
 
-    Failures = TestSuiteDelegate();
+    TestFailures = TestSuiteDelegate();
 
     // StopTime = WorldInfo.RealTimeSeconds;
     UnClock(ClockTime);
@@ -205,9 +280,9 @@ private final simulated function int RunTest(
     `fclog("Clock time :" @ ClockTime * 1000000000);
     // `fclog("Time       :" @ StopTime - StartTime);
 
-    if (Failures > 0)
+    if (TestFailures > 0)
     {
-        `fcerror("---" @ Failures @ "FAILED CHECKS ---");
+        `fcerror("---" @ TestFailures @ "(Iteration=" $ Iteration $ ")" @ "FAILED CHECKS ---");
         `warn("---" @ TestSuiteName @ "TEST SUITE FAILED ---");
     }
     else
@@ -215,16 +290,15 @@ private final simulated function int RunTest(
         `fclog("--- ALL" @ TestSuiteName @ "TESTS PASSED SUCCESSFULLY ---");
     }
 
-    bTestsDone = True;
+    SetTimer(0.001, False, NameOf(RunNextTest));
 
-    return Failures;
+    Failures += TestFailures;
 }
 
 private final simulated function RunTests()
 {
     local int I;
     local int K;
-    local int Failures;
 
     if (!GMPClient.IsConnected())
     {
@@ -254,39 +328,18 @@ private final simulated function RunTests()
 
     if (bRandPrimesRequested && (RandomPrimes.Length < 1270))
     {
-        `fclog("RandomPrimes.Length:"
-            @ RandomPrimes.Length @ "checking again...");
+        `fclog("RandomPrimes.Length:" @ RandomPrimes.Length @ "checking again...");
         SetTimer(0.0000001, False, nameof(RunTests));
         return;
     }
 
-    Failures = 0;
     GlobalStartTime = Utils.GetSystemTimeStamp();
     GlobalClock = 0.0;
     Clock(GlobalClock);
 
-    for (I = 0; I < NumTestLoops; ++I)
-    {
-        `fclog("SystemTimeStamp:" @ Utils.GetSystemTimeStamp());
-        bUseRandomPrimes = bool(I % 2);
-        `fclog("bUseRandomPrimes:" @ bUseRandomPrimes);
+    `fclog("SystemTimeStamp:" @ Utils.GetSystemTimeStamp());
 
-        Failures += RunTest(TestMemory, nameof(TestMemory), I);
-        Failures += RunTest(TestOperations, nameof(TestOperations), I);
-        Failures += RunTest(TestMath, nameof(TestMath), I);
-        Failures += RunTest(TestCrypto, nameof(TestCrypto), I);
-    }
-
-    UnClock(GlobalClock);
-    GlobalStopTime = Utils.GetSystemTimeStamp();
-
-    `fclog("--- TOTAL TIME       :" @ (GlobalStopTime - GlobalStartTime) @ "---");
-    `fclog("--- TOTAL CLOCK TIME :" @ GlobalClock @ "---");
-
-    if (Failures > 0)
-    {
-        `fcerror("---" @ Failures @ "TOTAL FAILED CHECKS ---");
-    }
+    RunNextTest();
 }
 
 private final simulated function int StringsShouldBeEqual(string S1, string S2)
@@ -687,7 +740,7 @@ private final simulated function IntToBytes(
 
 private final simulated function int TestMemory()
 {
-    local int Failures;
+    local int TestFailures;
     local int XLen;
     local int MLen;
     local int XLen0;
@@ -722,7 +775,7 @@ private final simulated function int TestMemory()
     local array<int> MemoryOut0;
     // local array<int> MemoryOut1;
 
-    Failures = 0;
+    TestFailures = 0;
 
     MemoryIn0[0] = 0x4bc2;
     MemoryIn0[1] = 0xcbea;
@@ -755,8 +808,8 @@ private final simulated function int TestMemory()
     class'FCryptoBigInt'.static.MemMove(MemoryIn0, MemoryIn0, SIZEOF_UINT16_T * 7, 1, 3);
     // class'FCryptoBigInt'.static.MemMove(MemoryIn1);
 
-    Failures += IntArraysShouldBeEqual(MemoryIn0, MemoryOut0);
-    // Failures += IntArraysShouldBeEqual();
+    TestFailures += IntArraysShouldBeEqual(MemoryIn0, MemoryOut0);
+    // TestFailures += IntArraysShouldBeEqual();
 
     class'FCryptoBigInt'.static.BytesFromHex(XBytes, "8815d9cd39874d1931329255ecd391");
     class'FCryptoBigInt'.static.BytesFromHex(Expected, "8815d915d9cd39874d1931329255ecd");
@@ -797,26 +850,27 @@ private final simulated function int TestMemory()
     class'FCryptoBigInt'.static.Encode(XBytes2, XLen2, XIn2);
     class'FCryptoBigInt'.static.Encode(XBytes3, XLen3, XIn3);
 
-    Failures += BytesShouldBeEqual(XBytes0, Out0, "XBytes0 != Out0");
-    Failures += BytesShouldBeEqual(XBytes1, Out1, "XBytes1 != Out1");
-    Failures += BytesShouldBeEqual(XBytes2, Out2, "XBytes2 != Out2");
-    Failures += BytesShouldBeEqual(XBytes3, Out3, "XBytes3 != Out3");
+    TestFailures += BytesShouldBeEqual(XBytes0, Out0, "XBytes0 != Out0");
+    TestFailures += BytesShouldBeEqual(XBytes1, Out1, "XBytes1 != Out1");
+    TestFailures += BytesShouldBeEqual(XBytes2, Out2, "XBytes2 != Out2");
+    TestFailures += BytesShouldBeEqual(XBytes3, Out3, "XBytes3 != Out3");
 
     `fclog("final MemMove, SIZEOF_UINT16_T="
         $ SIZEOF_UINT16_T $ ", MLen=" $ MLen $ ", X.Length=" $ X.Length
         $ ", X=" $ class'FCryptoBigInt'.static.WordsToString(X));
     // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
     class'FCryptoBigInt'.static.MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+    `fclog("(after) X.Length=" $ X.Length $ ", X=" $ class'FCryptoBigInt'.static.WordsToString(X));
 
     XBytes.Length = 0;
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'FCryptoBigInt'.static.Encode(XBytes, XLen, X);
 
-    Failures += BytesShouldBeEqual(XBytes, Expected, "XBytes != Expected");
+    TestFailures += BytesShouldBeEqual(XBytes, Expected, "XBytes != Expected");
 
     `fclog("done");
 
-    return Failures;
+    return TestFailures;
 }
 
 private final simulated function int TestOperations()
@@ -826,9 +880,9 @@ private final simulated function int TestOperations()
     local int Test;
     local int Test2;
     local int Result;
-    local int Failures;
+    local int TestFailures;
 
-    Failures = 0;
+    TestFailures = 0;
 
     class'FCryptoBigInt'.static.Decode(
         X,
@@ -838,57 +892,57 @@ private final simulated function int TestOperations()
 
     Test = 0;
     Result = class'FCryptoBigInt'.static.NOT(Test);
-    Failures += IntsShouldBeEqual(Result, 1, "NOT");
+    TestFailures += IntsShouldBeEqual(Result, 1, "NOT");
     Result = class'FCryptoBigInt'.static.NOT(Result);
-    Failures += IntsShouldBeEqual(Result, 0, "NOT");
+    TestFailures += IntsShouldBeEqual(Result, 0, "NOT");
 
     Test = 0;
     Test2 = 1;
     Result = class'FCryptoBigInt'.static.MUX(0, Test, Test2);
-    Failures += IntsShouldBeEqual(Result, Test2, "MUX");
+    TestFailures += IntsShouldBeEqual(Result, Test2, "MUX");
     Result = class'FCryptoBigInt'.static.MUX(1, Test, Test2);
-    Failures += IntsShouldBeEqual(Result, Test, "MUX");
+    TestFailures += IntsShouldBeEqual(Result, Test, "MUX");
 
     Result = class'FCryptoBigInt'.static.EQ(5, 5);
-    Failures += IntsShouldBeEqual(Result, 1, "EQ");
+    TestFailures += IntsShouldBeEqual(Result, 1, "EQ");
     Result = class'FCryptoBigInt'.static.EQ(7574, 0);
-    Failures += IntsShouldBeEqual(Result, 0, "EQ");
+    TestFailures += IntsShouldBeEqual(Result, 0, "EQ");
 
     Result = class'FCryptoBigInt'.static.NEQ(5, 5);
-    Failures += IntsShouldBeEqual(Result, 0, "NEQ");
+    TestFailures += IntsShouldBeEqual(Result, 0, "NEQ");
     Result = class'FCryptoBigInt'.static.NEQ(7574, 0);
-    Failures += IntsShouldBeEqual(Result, 1, "NEQ");
+    TestFailures += IntsShouldBeEqual(Result, 1, "NEQ");
 
     Result = class'FCryptoBigInt'.static.GT(5, 5);
-    Failures += IntsShouldBeEqual(Result, 0, "GT");
+    TestFailures += IntsShouldBeEqual(Result, 0, "GT");
     Result = class'FCryptoBigInt'.static.GT(7574, 0);
-    Failures += IntsShouldBeEqual(Result, 1, "GT");
+    TestFailures += IntsShouldBeEqual(Result, 1, "GT");
     Result = class'FCryptoBigInt'.static.GT(5, 7345345);
-    Failures += IntsShouldBeEqual(Result, 0, "GT");
+    TestFailures += IntsShouldBeEqual(Result, 0, "GT");
 
     Result = class'FCryptoBigInt'.static.CMP(5, 5);
-    Failures += IntsShouldBeEqual(Result, 0, "CMP");
+    TestFailures += IntsShouldBeEqual(Result, 0, "CMP");
     Result = class'FCryptoBigInt'.static.CMP(7574, 0);
-    Failures += IntsShouldBeEqual(Result, 1, "CMP");
+    TestFailures += IntsShouldBeEqual(Result, 1, "CMP");
     Result = class'FCryptoBigInt'.static.CMP(5, 7345345);
-    Failures += IntsShouldBeEqual(Result, -1, "CMP");
+    TestFailures += IntsShouldBeEqual(Result, -1, "CMP");
 
     Result = class'FCryptoBigInt'.static.EQ0(5);
-    Failures += IntsShouldBeEqual(Result, 0, "EQ0");
+    TestFailures += IntsShouldBeEqual(Result, 0, "EQ0");
     Result = class'FCryptoBigInt'.static.EQ0(0);
-    Failures += IntsShouldBeEqual(Result, 1, "EQ0");
+    TestFailures += IntsShouldBeEqual(Result, 1, "EQ0");
     Result = class'FCryptoBigInt'.static.EQ0(7345345);
-    Failures += IntsShouldBeEqual(Result, 0, "EQ0");
+    TestFailures += IntsShouldBeEqual(Result, 0, "EQ0");
 
     // Have to define these elsewhere to be able to test them.
     // Result = `GE(5, 0);
-    // Failures += IntsShouldBeEqual(Result, 1, "GE");
+    // TestFailures += IntsShouldBeEqual(Result, 1, "GE");
     // Result = `GE(0, 15);
-    // Failures += IntsShouldBeEqual(Result, 0, "GE");
+    // TestFailures += IntsShouldBeEqual(Result, 0, "GE");
     // Result = `GE(1, 1);
-    // Failures += IntsShouldBeEqual(Result, 1, "GE");
+    // TestFailures += IntsShouldBeEqual(Result, 1, "GE");
 
-    return Failures;
+    return TestFailures;
 `else
     `fcslog("Not debugging, skipping...");
     return 0;
@@ -914,7 +968,7 @@ private final simulated function int TestMath()
     local array<int> MontyMaBuf;
     local int TempLen;
     local int XLen;
-    local int Failures;
+    local int TestFailures;
     local int K;
     local int I;
     local int Ctl;
@@ -943,18 +997,20 @@ private final simulated function int TestMath()
     Mb.Length = 4;
     Mv.Length = 4;
 
+    `fcdebug("basic zero decode check");
     class'FCryptoBigInt'.static.Decode(
         X,
         Bytes_0,
         Bytes_0.Length
     );
     BigIntString = class'FCryptoBigInt'.static.WordsToString(X);
-    Failures += StringsShouldBeEqual(
+    TestFailures += StringsShouldBeEqual(
         BigIntString,
         "00000000 (0, 0)"
     );
     X.Length = 0;
 
+    `fcdebug("check decode Bytes_257871904");
     class'FCryptoBigInt'.static.Decode(
         X,
         Bytes_257871904,
@@ -964,12 +1020,13 @@ private final simulated function int TestMath()
     // `fclog("257871904                   BigInt :" @ BigIntString);
     //     1EBD     5020 (1, 13) (BearSSL)
     // 00001EBD 00005020 (1, 13) (UScript)
-    Failures += StringsShouldBeEqual(
+    TestFailures += StringsShouldBeEqual(
         BigIntString,
         "00001EBD 00005020 (1, 13)"
     );
     X.Length = 0;
 
+    `fcdebug("check decode Bytes_683384335291162482276352519");
     class'FCryptoBigInt'.static.Decode(
         X,
         Bytes_683384335291162482276352519,
@@ -979,7 +1036,7 @@ private final simulated function int TestMath()
     // `fclog("683384335291162482276352519 BigInt :" @ BigIntString);
     //     46A9     0430     62D7     1A7A     5DB9     4207 (5, 15) (BearSSL)
     // 000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15) (UScript)
-    Failures += StringsShouldBeEqual(
+    TestFailures += StringsShouldBeEqual(
         BigIntString,
         "000046A9 00000430 000062D7 00001A7A 00005DB9 00004207 (5, 15)"
     );
@@ -988,7 +1045,7 @@ private final simulated function int TestMath()
     // LogBytes(XEncoded);
     //                                     02 35 48 43 0C 5A E6 9E AE DC C2 07
     // 00 00 00 00 00 00 00 00 00 00 00 00 02 35 48 43 0C 5A E6 9E AE DC C2 07
-    Failures += BytesShouldBeEqual(XEncoded, Bytes_683384335291162482276352519, "XEncoded");
+    TestFailures += BytesShouldBeEqual(XEncoded, Bytes_683384335291162482276352519, "XEncoded");
     X.Length = 0;
 
     HardCodedMontyFail = 0;
@@ -1017,6 +1074,8 @@ private final simulated function int TestMath()
     -------------------------
     done.
     */
+
+    `fcdebug("hard-coded monty test");
 
     class'FCryptoBigInt'.static.BytesFromHex(
         MontyEa,
@@ -1067,7 +1126,7 @@ private final simulated function int TestMath()
         TempLen,
         MontyMaBuf
     );
-    Failures += BytesShouldBeEqual(
+    TestFailures += BytesShouldBeEqual(
         TempBytes,
         MontyMaExpectedAfterDecodeMod,
         "TempBytes != MontyMaExpectedAfterDecodeMod"
@@ -1078,7 +1137,7 @@ private final simulated function int TestMath()
 
     if (MontyDecodeResult != 1)
     {
-        Failures += 1;
+        TestFailures += 1;
         `fcwarn("MontyDecodeResult != 1, actual value:" @ MontyDecodeResult);
     }
 
@@ -1091,7 +1150,9 @@ private final simulated function int TestMath()
         `fcwarn("MontyEa       :" @ BytesWordsToString(MontyEa));
     }
 
-    Failures += HardCodedMontyFail;
+    TestFailures += HardCodedMontyFail;
+
+    `fcdebug("testing with primes, bUseRandomPrimes=" $ bUseRandomPrimes);
 
     KArr.Length = 4;
     for (K = 2; K <= 128; ++K)
@@ -1117,14 +1178,14 @@ private final simulated function int TestMath()
             Test1 = 10;
             Test2 = 2;
             Result = class'FCryptoBigInt'.static.DivRem16(Test1, Test2, Remainder);
-            Failures += IntsShouldBeEqual(Result, 10 / 2, "DivRem16");
-            Failures += IntsShouldBeEqual(Remainder, 0, "DivRem16");
+            TestFailures += IntsShouldBeEqual(Result, 10 / 2, "DivRem16");
+            TestFailures += IntsShouldBeEqual(Remainder, 0, "DivRem16");
 
             Test1 = 22;
             Test2 = 3;
             Result = class'FCryptoBigInt'.static.DivRem16(Test1, Test2, Remainder);
-            Failures += IntsShouldBeEqual(Result, 7, "DivRem16");
-            Failures += IntsShouldBeEqual(Remainder, 1, "DivRem16");
+            TestFailures += IntsShouldBeEqual(Result, 7, "DivRem16");
+            TestFailures += IntsShouldBeEqual(Remainder, 1, "DivRem16");
 
             class'FCryptoBigInt'.static.Decode(Mp, P, P.Length);
             if (class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp) != 1)
@@ -1133,7 +1194,7 @@ private final simulated function int TestMath()
                 `fclog("A bytes:");
                 LogBytes(A);
                 `fclog("Mp:" @ class'FCryptoBigInt'.static.WordsToString(Mp));
-                ++Failures;
+                ++TestFailures;
             }
 
             MP0I = class'FCryptoBigInt'.static.NInv15(Mp[1]);
@@ -1144,14 +1205,14 @@ private final simulated function int TestMath()
                 LogBytes(B);
                 `fclog("Mp:" @ class'FCryptoBigInt'.static.WordsToString(Mp));
                 `fclog("MP0I:" @ MP0I);
-                ++Failures;
+                ++TestFailures;
             }
 
             class'FCryptoBigInt'.static.Decode(Mv, V, V.Length);
-            Failures += CheckEqz(Mp, P, "Mp != P");
-            Failures += CheckEqz(Ma, A, "Ma != A");
-            Failures += CheckEqz(Mb, B, "Mb != B");
-            Failures += CheckEqz(Mv, V, "Mv != V");
+            TestFailures += CheckEqz(Mp, P, "Mp != P");
+            TestFailures += CheckEqz(Ma, A, "Ma != A");
+            TestFailures += CheckEqz(Mb, B, "Mb != B");
+            TestFailures += CheckEqz(Mv, V, "Mv != V");
 
             class'FCryptoBigInt'.static.DecodeMod(Ma, A, A.Length, Mp);
             class'FCryptoBigInt'.static.DecodeMod(Mb, B, B.Length, Mp);
@@ -1251,7 +1312,7 @@ private final simulated function int TestMath()
         }
     }
 
-    return Failures;
+    return TestFailures;
 }
 
 private final simulated function int TestCrypto()
@@ -1261,16 +1322,25 @@ private final simulated function int TestCrypto()
 
 DefaultProperties
 {
+    Failures=0
     PrimeIndex=0
     RandomPrimeIndex=0
     TestDelay=0.0
     NumTestLoops=1
+    CurrentTestIteration=0
     GlobalClock=0.0
     bRandPrimesRequested=False
 
     bExitTimerSet=False
     ExitDelaySeconds=3.0
     bTestsDone=False
+
+    CurrentTestDelegateIndex=0
+    // TODO: This does not work in DefaultProperties?
+    // TestDelegatesToRun[0]=(TestDelegate=TestMemory,TestName='TestMemory')
+    // TestDelegatesToRun[1]=(TestDelegate=TestOperations,TestName='TestOperations')
+    // TestDelegatesToRun[2]=(TestDelegate=TestMath,TestName='TestMath')
+    // TestDelegatesToRun[3]=(TestDelegate=TestCrypto,TestName='TestCrypto')
 
     TickGroup=TG_DuringAsyncWork
     TickFrequency=0

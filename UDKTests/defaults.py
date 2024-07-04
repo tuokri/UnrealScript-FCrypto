@@ -25,7 +25,7 @@ from pathlib import Path
 _FILE_DIR = Path(__file__).parent
 
 UDK_TEST_TIMEOUT = 300
-UDK_LITE_TAG = "1.0.1"
+UDK_LITE_TAG = "1.0.2"
 UDK_LITE_ROOT = "./UDK-Lite/"
 UDK_LITE_RELEASE_URL = (f"https://github.com/tuokri/UDK-Lite/releases/download/{UDK_LITE_TAG}/UDK"
                         f"-Lite-{UDK_LITE_TAG}.7z")

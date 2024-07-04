@@ -46,7 +46,9 @@ var private array<string> Responses;
 var private int TransactionID;
 var private array<string> TransactionStack;
 
+var bool bTestMutatorDone;
 var bool bDone;
+
 struct PendingCheck
 {
     var string TestName;
@@ -89,6 +91,11 @@ simulated event Tick(float DeltaTime)
     local int Fail;
     local int Temp;
     local bool bSuccess;
+
+    if (bDone && bTestMutatorDone)
+    {
+        return;
+    }
 
     for (I = 0; I < Responses.Length; ++I)
     {
@@ -188,8 +195,8 @@ simulated event Tick(float DeltaTime)
     if (ChecksDone > 0 && (ChecksDone >= RequiredChecks))
     {
         `fclog("--- ALL CHECKS DONE" @ ChecksDone $ "/" $ RequiredChecks @ "---");
-        ChecksDone = 0;
-        RequiredChecks = 0;
+        // ChecksDone = 0;
+        // RequiredChecks = 0;
 
         if (Failures > 0)
         {
@@ -253,7 +260,8 @@ final simulated function Eq(string GMPOperandName, const out array<int> B,
     Check.BigIntOperand = B;
 
     PendingChecks.AddItem(Check);
-    RequiredChecks = PendingChecks.Length;
+    // RequiredChecks = PendingChecks.Length;
+    ++RequiredChecks;
 }
 
 final simulated function RandPrime(int Size)

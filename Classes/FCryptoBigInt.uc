@@ -265,6 +265,7 @@ static final function MemMove(
     local int Mask;
     local array<byte> DstBytes;
     local int DstTmp;
+    local int MaxIntIndex;
 
     DstBytes.Length = NumBytes;
 
@@ -291,10 +292,18 @@ static final function MemMove(
     Shift = 8;
     Mask = 0xff << Shift;
     IntIndex = DstOffset;
+
+    MaxIntIndex = FFloor(DstOffset + (NumBytes / 2));
+    if (MaxIntIndex >= Dst.Length)
+    {
+        Dst.Length = MaxIntIndex + 1;
+    }
+
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
     {
-        `fcsdebug("IntIndex=" $ IntIndex);
+        // `fcsdebug("IntIndex=" $ IntIndex);
 
+        // TODO: is DstTmp needed? (Also check other memory functions).
         DstTmp = (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift);
         Dst[IntIndex] = DstTmp;
 
@@ -555,6 +564,12 @@ static final function int Sub(
 
     Cc = 0;
     M = (A[0] + 31) >>> 4;
+
+    if (M > A.Length)
+    {
+        A.Length = M;
+    }
+
     for (U = 1; U < M; ++U)
     {
         Aw = A[U];

@@ -322,11 +322,21 @@ async def run_udk_server(
 ) -> int:
     print("starting UDK testing phase")
 
-    udk_exe = (udk_lite_root / "Binaries/Win64/UDK.com").resolve()
+    udk_exe_norunaway = (udk_lite_root / "Binaries/Win64/UDK_norunaway.exe").resolve()
+    udk_exe = (udk_lite_root / "Binaries/Win64/UDK.exe").resolve()
+    udk_com = (udk_lite_root / "Binaries/Win64/UDK.com").resolve()
+
+    # Use UDK.exe with runaway loop detection patched out.
+    if udk_exe_norunaway.exists():
+        dst = udk_exe.with_name("UDK.exe.backup")
+        print(f"{udk_exe} -> {dst}")
+        shutil.move(udk_exe, dst)
+        print(f"{udk_exe_norunaway} -> {udk_exe}")
+        shutil.move(udk_exe_norunaway, udk_exe)
 
     watcher.state = State.TESTING
     test_proc = await asyncio.create_subprocess_exec(
-        udk_exe,
+        udk_com,
         *[
             "server",
             udk_args,
@@ -602,7 +612,7 @@ async def main():
         watcher=watcher,
         udk_lite_root=udk_lite_root,
         testing_event=TESTING_EVENT,
-        udk_args="Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?dedicated=true",
+        udk_args="Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?dedicated=true?NumTestLoops=10",
     )
 
     if not no_gmp_server:
