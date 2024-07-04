@@ -46,9 +46,13 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-          cache-dependency-path: ${{ github.workspace }}/UDKTests/requirements.txt
+          cache-dependency-path: |
+            ${{ github.workspace }}/UDKTests/requirements.txt
+            ${{ github.workspace }}/DevUtils/requirements.txt
 
+      - run: python -m pip install --upgrade pip
       - run: pip install -r ${{ github.workspace }}/UDKTests/requirements.txt
+      - run: pip install -r ${{ github.workspace }}/DevUtils/requirements.txt
 
       - run: python --version
 
