@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Tuomo Kriikkula <tuokri@tuta.io>
+ * Copyright (c) 2024 Tuomo Kriikkula <tuokri@tuta.io>
  * Copyright (c) 2017 Thomas Pornin <pornin@bolet.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
