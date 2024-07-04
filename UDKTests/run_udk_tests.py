@@ -454,6 +454,8 @@ async def main():
     udk_lite_release_url = os.environ.get("UDK_LITE_RELEASE_URL", defaults.UDK_LITE_RELEASE_URL)
     fcrypto_classes_files = os.environ.get("FCRYPTO_CLASSES_FILES",
                                            defaults.FCRYPTO_CLASSES_FILES)
+    fcrypto_num_test_loops = os.environ.get("FCRYPTO_NUM_TEST_LOOPS",
+                                            defaults.FCRYPTO_NUM_TEST_LOOPS)
 
     if not udk_lite_root.is_absolute():
         udk_lite_root = (SCRIPT_DIR / udk_lite_root).resolve()
@@ -462,6 +464,7 @@ async def main():
     print(f"UDK_LITE_ROOT={udk_lite_root}")
     print(f"UDK_LITE_RELEASE_URL={udk_lite_release_url}")
     print(f"FCRYPTO_CLASSES_FILES={fcrypto_classes_files}")
+    print(f"FCRYPTO_NUM_TEST_LOOPS={fcrypto_num_test_loops}")
 
     input_uscript_files = [
         resolve_script_path(path) for path in
@@ -612,7 +615,8 @@ async def main():
         watcher=watcher,
         udk_lite_root=udk_lite_root,
         testing_event=TESTING_EVENT,
-        udk_args="Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?dedicated=true?NumTestLoops=10",
+        udk_args=f"Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?"
+                 f"dedicated=true?NumTestLoops={fcrypto_num_test_loops}",
     )
 
     if not no_gmp_server:
