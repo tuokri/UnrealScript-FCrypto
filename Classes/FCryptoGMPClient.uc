@@ -37,6 +37,8 @@
  */
 class FCryptoGMPClient extends TcpLink;
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
+
 var private int ClientPort;
 
 var private array<string> Responses;
@@ -45,7 +47,6 @@ var private int TransactionID;
 var private array<string> TransactionStack;
 
 var bool bDone;
-
 struct PendingCheck
 {
     var string TestName;
@@ -86,6 +87,8 @@ simulated event Tick(float DeltaTime)
     // local int LenResult;
     // local string ByteS;
     local int Fail;
+    local int Temp;
+    local bool bSuccess;
 
     for (I = 0; I < Responses.Length; ++I)
     {
@@ -106,7 +109,13 @@ simulated event Tick(float DeltaTime)
         if (Len(R_Result) < 3)
         {
             R_ResultBytes.Length = 1;
-            R_ResultBytes[0] = class'WebAdminUtils'.static.FromHex(R_Result);
+            bSuccess = class'FCryptoUtils'.static.FromHex(R_Result, Temp);
+            if (!bSuccess)
+            {
+                `fcerror("failed to convert R_Result:" @ R_Result @ "to an integer");
+                ++Failures;
+            }
+            R_ResultBytes[0] = Temp;
         }
         else
         {

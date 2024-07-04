@@ -24,6 +24,8 @@
  */
 interface FCryptoEllipticCurve;
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
+
 enum EFCEllipticCurve
 {
     FCEC_Curve25519

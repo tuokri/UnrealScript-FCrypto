@@ -24,6 +24,8 @@
 class FCryptoUtils extends Object
     notplaceable;
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
+
 var private int Year;
 var private int Month;
 var private int DayOfWeek;
@@ -38,4 +40,51 @@ simulated final function float GetSystemTimeStamp()
 {
     GetSystemTime(Year, Month, DayOfWeek, Day, Hour, Min, Sec, MSec);
     return (Hour * 3600) + (Min * 60) + Sec + (MSec / 1000);
+}
+
+static final function bool FromHex(string HexString, out int Result)
+{
+    local int Res;
+    local int i;
+    local int t;
+    local int s;
+
+    if (Len(HexString) > 8)
+    {
+        Result = -1;
+        return False;
+    }
+
+    HexString = Caps(HexString);
+    s = 0;
+
+    for (i = Len(HexString) - 1; i >= 0; --i)
+    {
+        t = Asc(Mid(HexString, i, 1));
+
+        if (t >= 48 && t <= 57)
+        {
+            t -= 48;
+        }
+        else if (t >= 65 && t <= 70)
+        {
+            t -= 55;
+        }
+        else
+        {
+            Result = -1;
+            return False;
+        }
+
+        if (s > 0)
+        {
+            t = t << s;
+        }
+
+        Res = Res | t;
+        s += 4;
+    }
+
+    Result = Res;
+    return True;
 }

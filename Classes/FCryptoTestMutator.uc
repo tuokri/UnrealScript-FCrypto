@@ -44,11 +44,10 @@
 class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
+
 var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
-
-const WORD_SIZE = 15;
-const SIZEOF_UINT16_T = 2;
 
 var(FCryptoTests) editconst const array<byte> Bytes_0;
 var(FCryptoTests) editconst const array<byte> Bytes_257871904;
@@ -268,7 +267,7 @@ private final simulated function RunTests()
 
     for (I = 0; I < NumTestLoops; ++I)
     {
-        `fclog(Utils.GetSystemTimeStamp());
+        `fclog("SystemTimeStamp:" @ Utils.GetSystemTimeStamp());
         bUseRandomPrimes = bool(I % 2);
         `fclog("bUseRandomPrimes:" @ bUseRandomPrimes);
 
@@ -752,6 +751,7 @@ private final simulated function int TestMemory()
     // 4bc2aa909ab9babd42a2a58cb8735da1b8735da1 <-- result
     // 4bc2 aa90 9ab9 babd 42a2 a58c b873 5da1 b873 5da1
 
+    `fclog("mutate self with MemMove");
     class'FCryptoBigInt'.static.MemMove(MemoryIn0, MemoryIn0, SIZEOF_UINT16_T * 7, 1, 3);
     // class'FCryptoBigInt'.static.MemMove(MemoryIn1);
 
@@ -780,6 +780,7 @@ private final simulated function int TestMemory()
     // MLen = (M[0] + 15) >>> 4;
     MLen = 9;
 
+    `fclog("MemMoving static cases generated with BearSSL");
     // Static cases generated with BearSSL test_math.
     class'FCryptoBigInt'.static.MemMove(XIn0, XIn0, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
     class'FCryptoBigInt'.static.MemMove(XIn1, XIn1, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
@@ -801,15 +802,19 @@ private final simulated function int TestMemory()
     Failures += BytesShouldBeEqual(XBytes2, Out2, "XBytes2 != Out2");
     Failures += BytesShouldBeEqual(XBytes3, Out3, "XBytes3 != Out3");
 
+    `fclog("final MemMove, SIZEOF_UINT16_T="
+        $ SIZEOF_UINT16_T $ ", MLen=" $ MLen $ ", X.Length=" $ X.Length
+        $ ", X=" $ class'FCryptoBigInt'.static.WordsToString(X));
     // memmove(x + 2, x + 1, (mlen - 1) * sizeof *x);
-    class'FCryptoBigInt'.static.MemMove(
-        X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
+    class'FCryptoBigInt'.static.MemMove(X, X, (MLen - 1) * SIZEOF_UINT16_T, 2, 1);
 
     XBytes.Length = 0;
     XLen = ((X[0] + 15) & ~15) >>> 2;
     class'FCryptoBigInt'.static.Encode(XBytes, XLen, X);
 
     Failures += BytesShouldBeEqual(XBytes, Expected, "XBytes != Expected");
+
+    `fclog("done");
 
     return Failures;
 }

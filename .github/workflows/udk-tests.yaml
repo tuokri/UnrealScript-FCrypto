@@ -1,0 +1,91 @@
+name: Build and test with UDK
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+# TODO: unify GH env vars with local UDKTests env vars somehow.
+env:
+  UDK_LITE_CACHE: ${{ github.workspace }}/UDKTests/.cache/
+  UDK_LITE_TAG: 1.0.1
+  # Timeout for individual steps in the test script. Not a total timeout.
+  UDK_TEST_TIMEOUT: 300
+  PYTHONUNBUFFERED: 1
+  # https://github.com/actions/runner/issues/382
+  ErrorView: NormalView
+
+jobs:
+  build-and-test-with-udk:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest ]
+
+    steps:
+      - name: Check out FCrypto repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Cache UDK-Lite release archive
+        uses: actions/cache@v4
+        id: cache-udk-lite-release
+        with:
+          path: |
+            ${{ env.UDK_LITE_CACHE }}
+            ${{ env.UDK_LITE_CACHE }}/*.json
+            ${{ env.UDK_LITE_CACHE }}/*.7z
+          key: windows-latest-cache-udk-lite-release-${{ env.UDK_LITE_TAG }}
+          restore-keys: windows-latest-cache-udk-lite-release-${{ env.UDK_LITE_TAG }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: ${{ github.workspace }}/UDKTests/requirements.txt
+
+      - run: pip install -r ${{ github.workspace }}/UDKTests/requirements.txt
+
+      - run: python --version
+
+      - name: Cache Windows redistributables
+        uses: actions/cache@v4
+        id: cache-win-redist
+        with:
+          path: |
+            C:\Temp\VcRedist
+            C:\Temp\*.exe
+          key: win-cached-redist
+          restore-keys: win-cached-redist
+
+      - name: Install VC Redist 2012
+        run: ${{ github.workspace }}/UDKTests/install_vcredist.ps1
+        if: matrix.os != 'self-hosted'
+
+      - name: Install DirectX SDK
+        run: ${{ github.workspace }}/UDKTests/install_dx_sdk.ps1
+        if: matrix.os != 'self-hosted'
+
+      - name: Install DirectX Redist
+        run: ${{ github.workspace }}/UDKTests/install_dx_redist.ps1
+        if: matrix.os != 'self-hosted'
+
+      - name: Run UDK build and test script
+        timeout-minutes: 5
+        run: python ${{ github.workspace }}/UDKTests/run_udk_tests.py --add-fw-rules
+
+      - name: Archive UDK build and test logs and artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: udk-logs-${{ matrix.os }}
+          path: |
+            ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Logs/*.log
+            ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Logs/*.dmp
+            ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Logs/
+            ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Script/FCrypto*
+            ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Script/Manifest.txt

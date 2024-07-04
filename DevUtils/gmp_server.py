@@ -53,7 +53,11 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
 
     def handle(self):
         while True:
-            self.data = self.rfile.readline().strip()
+            try:
+                self.data = self.rfile.readline().strip()
+            except ConnectionResetError as e:
+                print(f"connection closed: {type(e).__name__}: {e}")
+                break
 
             cmd_data = self.data.decode("utf-8")
             if not cmd_data.strip():
@@ -157,8 +161,10 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         #     )
 
 
+# https://rednafi.com/python/multithreaded_socket_server_signal_handling/
 class TCPServer(socketserver.TCPServer):
     allow_reuse_address = True
+    # block_on_close = False
 
 
 def main():

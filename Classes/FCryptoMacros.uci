@@ -18,9 +18,15 @@
 `define fcerror(msg, cond) `fclog(`msg, `cond, 'ERROR')
 
 `define fcswarn(msg, cond) `fcslog(`msg, `cond, 'WARNING')
+`define fcserror(msg, cond) `fcslog(`msg, `cond, 'ERROR')
 
 `if(`isdefined(FCDEBUG))
     `define fcdebug(msg, cond) `fclog(`msg, `cond, 'DEBUG')
+    `define fcsdebug(msg, cond) `fcslog(`msg, `cond, 'DEBUG')
 `else
     `define fcdebug(msg, cond, tag)
+    `define fcsdebug(msg, cond, tag)
 `endif
+
+const SIZEOF_UINT16_T = 2;
+const WORD_SIZE = 15;

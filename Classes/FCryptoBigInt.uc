@@ -55,7 +55,7 @@ class FCryptoBigInt extends Object
 // We should remove all of these if possible, to keep BearSSL CT guarantees
 // as intact as possible. This is only a best effort CT guarantee, though.
 
-const SIZEOF_UINT16_T = 2;
+`include(FCrypto\Classes\FCryptoMacros.uci);
 
 `if(`isdefined(FCDEBUG))
     `define fcprivate
@@ -293,6 +293,8 @@ static final function MemMove(
     IntIndex = DstOffset;
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
     {
+        `fcsdebug("IntIndex=" $ IntIndex);
+
         DstTmp = (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift);
         Dst[IntIndex] = DstTmp;
 
@@ -2250,6 +2252,8 @@ static final function BytesFromHex(
     local int J;
     local int LenStr;
     local string ByteS;
+    local bool bSuccess;
+    local int Temp;
 
     LenStr = Len(HexString);
     if ((LenStr % 2) != 0)
@@ -2263,7 +2267,12 @@ static final function BytesFromHex(
     while (J < LenStr)
     {
         ByteS = Mid(HexString, J, 2);
-        Dst[K++] = class'WebAdminUtils'.static.FromHex(Bytes);
+        bSuccess = class'FCryptoUtils'.static.FromHex(Bytes, Temp);
+        if (!bSuccess)
+        {
+            `fcserror("failed to convert Bytes:" @ Bytes @ "to an integer");
+        }
+        Dst[K++] = Temp;
         J += 2;
     }
 }

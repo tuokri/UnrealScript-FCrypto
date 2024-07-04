@@ -27,7 +27,7 @@ class FCryptoEC_Curve25519 extends Object
     abstract
     notplaceable;
 
-const SIZEOF_UINT16_T = 2;
+`include(FCrypto\Classes\FCryptoMacros.uci);
 
 var private const array<byte> _GEN;
 var private const array<byte> _ORDER;

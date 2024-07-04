@@ -26,4 +26,6 @@ class FCryptoMemory extends Object
     abstract
     notplaceable;
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
+
 // TODO.
