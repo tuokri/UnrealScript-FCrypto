@@ -4,6 +4,11 @@ FCrypto UnrealScript code is tested with a lightweight build
 of UDK. See the [UDK-Lite repository](https://github.com/tuokri/UDK-Lite)
 for more details. UDK-Lite is included as a submodule in this repository.
 
+**NOTE:** `UDK.exe` by default has runaway loop detection that limits the number of
+loop iterations (per tick) to 1 million. This is not enough for FCrypto tests so the
+`UDK_norunaway.exe` executable with runaway loop detection binary patched out,
+is used instead.
+
 ## Environment variables
 
 Before running the tests, the following environment variables should be
