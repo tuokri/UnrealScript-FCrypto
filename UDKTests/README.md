@@ -21,8 +21,9 @@ in [defaults.py](defaults.py).
 ## Running the tests
 
 ```shell
-# TODO
-
+pip install -r requirements.txt
+pip install -r ../DevUtils/requirements.txt # for gmp_server.py
+python run_udk_tests.py
 ```
 
 ## TODO
