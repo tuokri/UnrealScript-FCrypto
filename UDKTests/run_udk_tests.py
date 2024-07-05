@@ -48,8 +48,10 @@ from udk_configparser import UDKConfigParser
 
 import defaults
 
-# TODO: rename this script.
 # TODO: leverage pytest?
+# TODO: use the logging module.
+# TODO: reduce log spam? More verbose logging to a file,
+#       only general info straight to console?
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_DIR = SCRIPT_DIR.parent
