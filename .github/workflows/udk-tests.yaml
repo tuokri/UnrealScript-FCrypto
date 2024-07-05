@@ -79,6 +79,15 @@ jobs:
         run: ${{ github.workspace }}/UDKTests/install_dx_redist.ps1
         if: matrix.os != 'self-hosted'
 
+      - name: Save Windows redistributables
+        if: steps.cache-win-redist.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            C:\Temp\VcRedist
+            C:\Temp\*.exe
+          key: win-cached-redist
+
       - name: Run UDK build and test script
         timeout-minutes: 5
         run: python ${{ github.workspace }}/UDKTests/run_udk_tests.py --add-fw-rules
