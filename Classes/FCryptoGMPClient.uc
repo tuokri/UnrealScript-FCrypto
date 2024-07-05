@@ -39,6 +39,8 @@ class FCryptoGMPClient extends TcpLink;
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
 
+const BpsToMbps = 0.000008;
+
 var private int ClientPort;
 
 var private array<string> Responses;
@@ -103,9 +105,17 @@ simulated event PreBeginPlay()
 
 simulated final function LogTransferRates()
 {
+    local float TimeSpent;
+    local float ByteRateOut;
+    local float ByteRateIn;
+
     StopTimeSeconds = WorldInfo.RealTimeSeconds;
-    `fclog("BytesOut :" @ BytesOut / (StopTimeSeconds - StartTimeSeconds) @ "B/s");
-    `fclog("BytesIn  :" @ BytesIn / (StopTimeSeconds - StartTimeSeconds) @ "B/s");
+    TimeSpent = StopTimeSeconds - StartTimeSeconds;
+    ByteRateOut = BytesOut / TimeSpent;
+    ByteRateIn = BytesIn / TimeSpent;
+
+    `fclog("BytesOut :" @ ByteRateOut @ "B/s" @ ByteRateOut * BpsToMbps @ "Mb/s");
+    `fclog("BytesIn  :" @ ByteRateIn @ "B/s" @ ByteRateIn * BpsToMbps @ "Mb/s");
 }
 
 simulated event Tick(float DeltaTime)
