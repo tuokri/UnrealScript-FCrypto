@@ -63,10 +63,15 @@ var private PendingCheck CurrentCheck;
 var string TargetHost;
 var int TargetPort;
 
+// Array of GMP server responses converted to strings.
 var private array<string> R_Array;
+// Response transaction ID.
 var private string R_TID;
+// Response GMP operand name.
 var private string R_GMPOperandName;
+// Response result.
 var private string R_Result;
+// Response result as bytes.
 var private array<byte> R_ResultBytes;
 
 var private int Failures;
