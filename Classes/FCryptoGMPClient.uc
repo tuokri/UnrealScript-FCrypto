@@ -83,8 +83,30 @@ var private int RequiredChecks;
 const ID_PRIME = "PRIME";
 const TID_PRIME = "TPRIME";
 
+// Bitrate calculations.
+// First packet has been sent.
+var bool bTransfersStarted;
+var float StartTimeSeconds;
+var float StopTimeSeconds;
+var int BytesOut; // TODO: does this overflow?
+var int BytesIn; // TODO: does this overflow?
+
 var delegate<OnRandPrimeReceived> RandPrimeDelegate;
 delegate OnRandPrimeReceived(const out array<byte> P);
+
+simulated event PreBeginPlay()
+{
+    super.PreBeginPlay();
+
+    SetTimer(2.0, True, NameOf(LogTransferRates));
+}
+
+simulated final function LogTransferRates()
+{
+    StopTimeSeconds = WorldInfo.RealTimeSeconds;
+    `fclog("BytesOut :" @ BytesOut / (StopTimeSeconds - StartTimeSeconds) @ "B/s");
+    `fclog("BytesIn  :" @ BytesIn / (StopTimeSeconds - StartTimeSeconds) @ "B/s");
+}
 
 simulated event Tick(float DeltaTime)
 {
@@ -209,6 +231,10 @@ simulated event Tick(float DeltaTime)
         }
 
         bDone = True;
+
+        `fclog("final transfer rate values:");
+        LogTransferRates();
+        ClearTimer(NameOf(LogTransferRates));
     }
 
     super.Tick(DeltaTime);
@@ -241,7 +267,7 @@ final simulated function End()
     }
 
     // `fclog("sending" @ TransactionID);
-    SendText(Str);
+    SendTextEx(Str);
     TransactionStack.Length = 0;
 }
 
@@ -271,12 +297,26 @@ final simulated function Eq(string GMPOperandName, const out array<int> B,
 
 final simulated function RandPrime(int Size)
 {
-    SendText(
+    SendTextEx(
         TID_PRIME
         @ "[var s '" $ ToHex(Size) $ "']"
         @ "[var x '0']"
         @ "[op rand_prime x s s]"
     );
+}
+
+final function SendTextEx(coerce string Str)
+{
+    if (!bTransfersStarted)
+    {
+        bTransfersStarted = True;
+        StartTimeSeconds = WorldInfo.RealTimeSeconds;
+    }
+
+    // TODO: is this right? UScript strings are UTF-16 (UCS-2).
+    BytesOut += Len(Str) * 2;
+
+    SendText(Str);
 }
 
 event Resolved(IpAddr Addr)
@@ -315,6 +355,9 @@ event ReceivedLine(string Line)
 {
     // `fclog(Line @ Responses.Length);
     Responses.AddItem(Line);
+
+    // TODO: is this right? UScript strings are UTF-16 (UCS-2).
+    BytesIn += Len(Line) * 2;
 }
 
 DefaultProperties
@@ -333,4 +376,6 @@ DefaultProperties
     OutLineMode=LMODE_UNIX
 
     TickGroup=TG_DuringAsyncWork
+
+    bTransfersStarted=False
 }
