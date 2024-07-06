@@ -32,14 +32,29 @@ import re
 import socketserver
 import sys
 import time
-from traceback import print_exc
 from typing import Dict
 from typing import List
 
 import gmpy2
+from loguru import logger
 
 HOST = "127.0.0.1"
 PORT = 65432
+
+_log_format = "[{time:YYYY-MM-DD HH:mm:ss.SSSZZ}] [{level}] [{function}] {message}"
+
+logger.remove()
+logger.add(
+    sys.stdout,
+    format=_log_format,
+    level="DEBUG",
+)
+logger.add(
+    "gmp_server.log",
+    format=_log_format,
+    rotation="50 MB",
+    level="DEBUG",
+)
 
 
 class GMPTCPHandler(socketserver.StreamRequestHandler):
@@ -56,7 +71,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
             try:
                 self.data = self.rfile.readline().strip()
             except ConnectionResetError as e:
-                print(f"connection closed: {type(e).__name__}: {e}")
+                logger.info("connection closed: {}: {}", type(e).__name__, e)
                 break
 
             cmd_data = self.data.decode("utf-8")
@@ -68,21 +83,20 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                 sys.stdout.flush()
             except Exception as e:
                 self.wfile.write(bytes("SERVER_ERROR\n", "utf-8"))
-                print(e)
-                print_exc()
+                logger.error(e)
+                logger.exception(e)
 
-        print("done\n\n")
+        logger.info("done")
         sys.stdout.flush()
 
     def calculate(self, cmd_data: str):
-        t_id = ""
         if match := self.id_regex.match(cmd_data):
             t_id = match.group(1)
         else:
             raise ValueError("invalid t_id")
 
         cmds: List[str] = self.cmd_regex.findall(cmd_data)
-        print("cmds:", cmds)
+        logger.info("cmds: {}", cmds)
 
         mpz_vars: Dict[str, gmpy2.mpz] = {}
         mpz_ops: List[List[str]] = []
@@ -108,23 +122,29 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
             match op_type.lower():
                 case "mpz_add":
                     mpz_vars[dst] = a + b
-                    print(f"\t{dst} = {op[2]} + {op[3]} ({a} + {b})")
+                    # print(f"\t{dst} = {op[2]} + {op[3]} ({a} + {b})")
+                    logger.info("\t{} = {} + {} ({} + {})", dst, op[2], op[3], a, b)
                 case "mpz_sub":
                     mpz_vars[dst] = a - b
-                    print(f"\t{dst} = {op[2]} - {op[3]} ({a} - {b})")
+                    # print(f"\t{dst} = {op[2]} - {op[3]} ({a} - {b})")
+                    logger.info("\t{} = {} - {} ({} - {})", dst, op[2], op[3], a, b)
                 case "mpz_mod":
                     mpz_vars[dst] = a % b
-                    print(f"\t{dst} = {op[2]} % {op[3]} ({a} % {b})")
+                    # print(f"\t{dst} = {op[2]} % {op[3]} ({a} % {b})")
+                    logger.info("\t{} = {} % {} ({} % {})", dst, op[2], op[3], a, b)
                 case "mpz_mul":
                     mpz_vars[dst] = a * b
-                    print(f"\t{dst} = {op[2]} * {op[3]} ({a} * {b})")
+                    # print(f"\t{dst} = {op[2]} * {op[3]} ({a} * {b})")
+                    logger.info("\t{} = {} * {} ({} * {})", dst, op[2], op[3], a, b)
                 case "mpz_mul_2exp":
                     mpz_vars[dst] = a << b
                     # mpz_vars[dst] = gmpy2.mpz(gmpy2.mul_2exp(a, b))
-                    print(f"\t{dst} = {op[2]} << {op[3]} ({a} << {b})")
+                    # print(f"\t{dst} = {op[2]} << {op[3]} ({a} << {b})")
+                    logger.info("\t{} = {} << {} ({} << {})", dst, op[2], op[3], a, b)
                 case "nop":
                     mpz_vars[dst] = a
-                    print(f"\t{dst} = {op[2]} (NO OPERATION)")
+                    # print(f"\t{dst} = {op[2]} (NO OPERATION)")
+                    logger.info("\t{} = {} (NO OPERATION)", dst, op[2])
                 case "rand_prime":
                     while True:
                         x = gmpy2.mpz_urandomb(self.rng, a - 1)
@@ -138,18 +158,19 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                             x += 1
                             mpz_vars[dst] = x
                             break
-                    print(f"\t{dst} = rand_prime({a}) ({mpz_vars[dst]})")
+                    # print(f"\t{dst} = rand_prime({a}) ({mpz_vars[dst]})")
+                    logger.info("\t{} = rand_prime({}) ({})", dst, a, mpz_vars[dst])
 
         if not dst:
             raise ValueError("no operations with dst")
 
         # TODO: should we send back all variables here?
-        #   Or only the result? Double-check test_math.c.
+        #   Or only the result? Double-check BearSSL test_math.c.
         out = bytes(
             f"{t_id} {dst} {mpz_vars[dst].digits(16)}\n",
-            "utf-8",
+            encoding="utf-8",
         )
-        print("out:", out)
+        logger.info("out: {}", out)
         self.wfile.write(out)
 
         # for name, value in mpz_vars.items():
@@ -161,7 +182,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         #     )
 
 
-# https://rednafi.com/python/multithreaded_socket_server_signal_handling/
+# TODO: https://rednafi.com/python/multithreaded_socket_server_signal_handling/
 class TCPServer(socketserver.TCPServer):
     allow_reuse_address = True
     # block_on_close = False
