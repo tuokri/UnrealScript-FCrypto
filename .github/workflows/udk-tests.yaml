@@ -103,3 +103,4 @@ jobs:
             ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Logs/
             ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Script/FCrypto*
             ${{ github.workspace }}/UDKTests/UDK-Lite/UDKGame/Script/Manifest.txt
+            ${{ github.workspace }}/gmp_server.log
