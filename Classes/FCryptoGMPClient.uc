@@ -40,6 +40,7 @@ class FCryptoGMPClient extends TcpLink;
 `include(FCrypto\Classes\FCryptoMacros.uci);
 
 const BpsToMbps = 0.000008;
+const BytesToMegaBytes = 0.000001;
 
 var private int ClientPort;
 
@@ -321,6 +322,8 @@ simulated event Tick(float DeltaTime)
         `fclog("final transfer rate values:");
         LogTransferRates();
         ClearTimer(NameOf(LogTransferRates));
+        `fclog("BytesOut :" @ BytesOut * BytesToMegaBytes @ "MB");
+        `fclog("BytesIn  :" @ BytesIn * BytesToMegaBytes @ "MB");
     }
 
     super.Tick(DeltaTime);

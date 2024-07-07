@@ -1312,6 +1312,11 @@ private final simulated function int TestMath()
         }
     }
 
+    // Force sample update since timer in GMPClient might not
+    // fire at the right time to update samples between tests.
+    GMPClient.StopTransferRateSample();
+    GMPClient.LogTransferRates();
+
     return TestFailures;
 }
 
