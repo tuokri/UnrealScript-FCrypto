@@ -86,12 +86,23 @@ const ID_PRIME = "PRIME";
 const TID_PRIME = "TPRIME";
 
 // Bitrate calculations.
-// First packet has been sent.
-var bool bTransfersStarted;
 var float StartTimeSeconds;
 var float StopTimeSeconds;
 var int BytesOut; // TODO: does this overflow?
 var int BytesIn; // TODO: does this overflow?
+var int LastBytesOut;
+var int LastBytesIn;
+var array<float> BytesOutSamples;
+var array<float> BytesInSamples;
+var float ByteRateOut;
+var float ByteRateIn;
+var int BytesOutSamplesIndex;
+var int BytesInSamplesIndex;
+const NUM_SAMPLES = 5;
+var float MaxByteRateOut;
+var float MaxByteRateIn;
+var float AvgByteRateOut;
+var float AvgByteRateIn;
 
 var delegate<OnRandPrimeReceived> RandPrimeDelegate;
 delegate OnRandPrimeReceived(const out array<byte> P);
@@ -100,22 +111,87 @@ simulated event PreBeginPlay()
 {
     super.PreBeginPlay();
 
+    SampleTransferRates();
     SetTimer(2.0, True, NameOf(LogTransferRates));
+}
+
+simulated final function SampleTransferRates()
+{
+    StartTimeSeconds = WorldInfo.RealTimeSeconds;
+    SetTimer(0.2, False, NameOf(StopTransferRateSample));
+}
+
+simulated final function StopTransferRateSample()
+{
+    local float TimeSpent;
+    local float CurrentByteRateOut;
+    local float CurrentByteRateIn;
+    local float CurrentBytesOut;
+    local float CurrentBytesIn;
+    local int i;
+
+    StopTimeSeconds = WorldInfo.RealTimeSeconds;
+    TimeSpent = StopTimeSeconds - StartTimeSeconds;
+
+    CurrentBytesOut = BytesOut - LastBytesOut;
+    CurrentBytesIn = BytesIn - LastBytesIn;
+
+    CurrentByteRateOut = CurrentBytesOut / TimeSpent;
+    CurrentByteRateIn = CurrentBytesIn / TimeSpent;
+
+    // `fclog("CurrentByteRateOut=" $ CurrentByteRateOut);
+    // `fclog("CurrentByteRateIn=" $ CurrentByteRateIn);
+
+    BytesOutSamplesIndex = (BytesOutSamplesIndex + 1) % NUM_SAMPLES;
+    BytesInSamplesIndex = (BytesInSamplesIndex + 1) % NUM_SAMPLES;
+
+    BytesOutSamples[BytesOutSamplesIndex] = CurrentByteRateOut;
+    BytesInSamples[BytesInSamplesIndex] = CurrentByteRateIn;
+
+    LastBytesOut = BytesOut;
+    LastBytesIn = BytesIn;
+
+    for (i = 0; i < NUM_SAMPLES; ++i)
+    {
+        ByteRateOut += BytesOutSamples[i];
+        ByteRateIn += BytesInSamples[i];
+    }
+
+    ByteRateOut /= NUM_SAMPLES;
+    ByteRateIn /= NUM_SAMPLES;
+
+    MaxByteRateOut = Max(MaxByteRateOut, ByteRateOut);
+    MaxByteRateIn = Max(MaxByteRateIn, ByteRateIn);
+
+    if (ByteRateOut > 0)
+    {
+        AvgByteRateOut += ByteRateOut;
+        AvgByteRateOut /= 2;
+    }
+
+    if (ByteRateIn > 0)
+    {
+        AvgByteRateIn += ByteRateIn;
+        AvgByteRateIn /= 2;
+    }
+
+    SampleTransferRates();
 }
 
 simulated final function LogTransferRates()
 {
-    local float TimeSpent;
-    local float ByteRateOut;
-    local float ByteRateIn;
-
-    StopTimeSeconds = WorldInfo.RealTimeSeconds;
-    TimeSpent = StopTimeSeconds - StartTimeSeconds;
-    ByteRateOut = BytesOut / TimeSpent;
-    ByteRateIn = BytesIn / TimeSpent;
-
-    `fclog("BytesOut :" @ ByteRateOut @ "B/s" @ ByteRateOut * BpsToMbps @ "Mb/s");
-    `fclog("BytesIn  :" @ ByteRateIn @ "B/s" @ ByteRateIn * BpsToMbps @ "Mb/s");
+    `fclog(
+        "BytesOut :" @ ByteRateOut @ "B/s"
+        @ ByteRateOut * BpsToMbps @ "Mb/s"
+        @ AvgByteRateOut * BpsToMbps @ "(avg)"
+        @ MaxByteRateOut * BpsToMbps @ "(max)"
+    );
+    `fclog(
+        "BytesIn  :" @ ByteRateIn @ "B/s"
+        @ ByteRateIn * BpsToMbps @ "Mb/s"
+        @ AvgByteRateIn * BpsToMbps @ "(avg)"
+        @ MaxByteRateIn * BpsToMbps @ "(max)"
+    );
 }
 
 simulated event Tick(float DeltaTime)
@@ -317,12 +393,6 @@ final simulated function RandPrime(int Size)
 
 final function SendTextEx(coerce string Str)
 {
-    if (!bTransfersStarted)
-    {
-        bTransfersStarted = True;
-        StartTimeSeconds = WorldInfo.RealTimeSeconds;
-    }
-
     // TODO: is this right? UScript strings are UTF-16 (UCS-2).
     BytesOut += Len(Str) * 2;
 
@@ -386,6 +456,4 @@ DefaultProperties
     OutLineMode=LMODE_UNIX
 
     TickGroup=TG_DuringAsyncWork
-
-    bTransfersStarted=False
 }
