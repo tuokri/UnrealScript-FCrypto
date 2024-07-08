@@ -195,7 +195,7 @@ simulated event Tick(float DeltaTime)
             @ ExitDelaySeconds @ "seconds. --- --- ---");
 
         bExitTimerSet = True;
-        SetTimer(ExitDelaySeconds, False, nameof(ExitTests));
+        SetTimer(ExitDelaySeconds, False, NameOf(ExitTests));
     }
 }
 
