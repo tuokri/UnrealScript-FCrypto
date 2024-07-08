@@ -125,6 +125,12 @@ final simulated function AddRandomPrime(
     // );
     RandomPrimes.Length = RandomPrimes.Length + 1;
     RandomPrimes[RandomPrimes.Length - 1].P = P;
+
+    if (RandomPrimes.Length % 100 == 0)
+    {
+        GMPClient.StopTransferRateSample();
+        GMPClient.LogTransferRates();
+    }
 }
 
 function InitMutator(string Options, out string ErrorMessage)

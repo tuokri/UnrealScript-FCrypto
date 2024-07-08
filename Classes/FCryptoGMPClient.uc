@@ -130,6 +130,7 @@ simulated final function StopTransferRateSample()
     local float CurrentBytesOut;
     local float CurrentBytesIn;
     local int i;
+    local int MaxIndex;
 
     StopTimeSeconds = WorldInfo.RealTimeSeconds;
     TimeSpent = StopTimeSeconds - StartTimeSeconds;
@@ -152,14 +153,16 @@ simulated final function StopTransferRateSample()
     LastBytesOut = BytesOut;
     LastBytesIn = BytesIn;
 
-    for (i = 0; i < NUM_SAMPLES; ++i)
+    MaxIndex = Min(NUM_SAMPLES, BytesOutSamples.Length);
+
+    for (i = 0; i < MaxIndex; ++i)
     {
         ByteRateOut += BytesOutSamples[i];
         ByteRateIn += BytesInSamples[i];
     }
 
-    ByteRateOut /= NUM_SAMPLES;
-    ByteRateIn /= NUM_SAMPLES;
+    ByteRateOut /= MaxIndex;
+    ByteRateIn /= MaxIndex;
 
     MaxByteRateOut = Max(MaxByteRateOut, ByteRateOut);
     MaxByteRateIn = Max(MaxByteRateIn, ByteRateIn);
