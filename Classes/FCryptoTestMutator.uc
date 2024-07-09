@@ -166,7 +166,7 @@ function InitMutator(string Options, out string ErrorMessage)
 
     if (TestDelay > 0)
     {
-        SetTimer(TestDelay, False, nameof(RunTests));
+        SetTimer(TestDelay, False, NameOf(RunTests));
     }
     else
     {
@@ -314,7 +314,7 @@ private final simulated function RunTests()
             GMPClient.Close();
             GMPClient.ConnectToServer();
         }
-        SetTimer(0.1, False, nameof(RunTests));
+        SetTimer(0.1, False, NameOf(RunTests));
         return;
     }
 
@@ -335,7 +335,7 @@ private final simulated function RunTests()
     if (bRandPrimesRequested && (RandomPrimes.Length < 1270))
     {
         `fclog("RandomPrimes.Length:" @ RandomPrimes.Length @ "checking again...");
-        SetTimer(0.0000001, False, nameof(RunTests));
+        SetTimer(0.0000001, False, NameOf(RunTests));
         return;
     }
 
