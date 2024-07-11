@@ -148,7 +148,6 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                         x = gmpy2.mpz_urandomb(self.rng, a - 1)
                         x = x.bit_set(0)
                         x = x.bit_set(a - 1)
-                        # if x.is_probab_prime(50):
                         if x.is_prime(50):
                             x -= 1
                             if x.is_divisible(65537):

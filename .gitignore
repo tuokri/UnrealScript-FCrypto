@@ -10,3 +10,5 @@
 *.log
 
 **/.python-version
+
+DevUtils/.ipynb_checkpoints/
