@@ -949,6 +949,8 @@ private final simulated function int TestOperations()
 `endif
 }
 
+// Mirrors most of the tests from BearSSL's test_match.c,
+// with some UnrealScript-specific additions.
 private final simulated function int TestMath()
 {
     local array<int> X;
