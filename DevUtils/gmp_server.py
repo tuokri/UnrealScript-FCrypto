@@ -109,9 +109,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                     digits = parts[2].replace("'", "") or "0"
                     mpz_vars[parts[1]] = gmpy2.mpz(digits, 16)
                 case "op":
-                    mpz_ops.append(
-                        [parts[1], parts[2], parts[3], parts[4]]
-                    )
+                    mpz_ops.append([parts[1], parts[2], parts[3], parts[4]])
 
         dst = ""
         for op in mpz_ops:
