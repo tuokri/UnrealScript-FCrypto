@@ -90,8 +90,8 @@ class LogWatcher(watchdog.events.FileSystemEventHandler):
         self._fh: IO | None = None
         self._pos = 0
         self._state = State.NONE
-        self._warnings = []
-        self._errors = []
+        self._warnings: list[str] = []
+        self._errors: list[str] = []
 
     @property
     def warnings(self) -> list[str]:
