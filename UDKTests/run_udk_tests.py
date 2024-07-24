@@ -331,10 +331,16 @@ async def run_udk_server(
     # Use UDK.exe with runaway loop detection patched out.
     if udk_exe_norunaway.exists():
         dst = udk_exe.with_name("UDK.exe.backup")
-        print(f"{udk_exe} -> {dst}")
-        shutil.move(udk_exe, dst)
-        print(f"{udk_exe_norunaway} -> {udk_exe}")
-        shutil.move(udk_exe_norunaway, udk_exe)
+
+        if dst.exists():
+            print(f"{dst} exists, assuming runaway loop detection executable already in use")
+        else:
+            print("moving original UDK.exe to backup "
+                  "and replacing it with runaway loop detection patched variant")
+            print(f"{udk_exe} -> {dst}")
+            shutil.move(udk_exe, dst)
+            print(f"{udk_exe_norunaway} -> {udk_exe}")
+            shutil.move(udk_exe_norunaway, udk_exe)
 
     watcher.state = State.TESTING
     test_proc = await asyncio.create_subprocess_exec(
