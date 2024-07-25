@@ -232,7 +232,7 @@ def download_file(url: str, out_file: Path, progress_bar: bool = True):
 def remove_old_extracted(cache: Cache):
     print("removing old extracted files, if any")
 
-    dirs = []
+    dirs: list[Path] = []
 
     for file in cache.pkg_archive_extracted_files:
         p = Path(file).resolve()
@@ -265,6 +265,7 @@ def already_extracted(archive_file: str, out_dir: Path, cache: Cache) -> bool:
 
 # Convince UDK.exe to flush the log file.
 # TODO: this is fucking stupid.
+# TODO: also not needed since -FORCELOGFLUSH is enabled.
 def poke_file(file: Path, event: threading.Event):
     while not event.is_set():
         file.stat()
