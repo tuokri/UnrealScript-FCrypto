@@ -44,14 +44,30 @@ import tqdm
 import unicodedata
 import watchdog.events
 import watchdog.observers
+from loguru import logger
 from udk_configparser import UDKConfigParser
 
 import defaults
 
 # TODO: leverage pytest?
-# TODO: use the logging module.
 # TODO: reduce log spam? More verbose logging to a file,
 #       only general info straight to console?
+
+
+_log_format = "[{time:YYYY-MM-DD HH:mm:ss.SSSZZ}] [{level}] [{function}] {message}"
+
+logger.remove()
+logger.add(
+    sys.stdout,
+    format=_log_format,
+    level="DEBUG",
+)
+logger.add(
+    "run_udk_tests.log",
+    format=_log_format,
+    rotation="50 MB",
+    level="DEBUG",
+)
 
 SCRIPT_DIR = Path(__file__).parent
 REPO_DIR = SCRIPT_DIR.parent
@@ -107,13 +123,13 @@ class LogWatcher(watchdog.events.FileSystemEventHandler):
 
     @state.setter
     def state(self, state: State):
-        print(f"setting state: {state}")
+        logger.info("setting state: {}", state)
         self._state = state
         self._pos = 0
 
     def on_any_event(self, event: watchdog.events.FileSystemEvent):
         if Path(event.src_path).name == self._log_filename:
-            print(f"fs event: {event.event_type}, {event.src_path}")
+            logger.info("fs event: {} {}", event.event_type, event.src_path)
             self._fh = open(self._log_file, errors="replace", encoding="utf-8")
 
     # TODO: better state handling, this is a mess ATM.
@@ -125,7 +141,7 @@ class LogWatcher(watchdog.events.FileSystemEventHandler):
 
             size = self._log_file.stat().st_size
             if size == 0:
-                print("log file cleared")
+                logger.info("log file cleared")
                 self._pos = 0
                 return
 
@@ -152,7 +168,7 @@ class LogWatcher(watchdog.events.FileSystemEventHandler):
 
                 if os.getenv("GITHUB_ACTIONS"):
                     line = unicodedata.normalize("NFKD", line)
-                print(line.strip())
+                logger.info(line.strip())
 
                 if self._state == State.BUILDING:
                     if "Log file closed" in line:
@@ -162,7 +178,7 @@ class LogWatcher(watchdog.events.FileSystemEventHandler):
                         log_end = True
 
             if log_end:
-                print("setting stop event")
+                logger.info("setting stop event")
                 if self._state == State.BUILDING:
                     self._building_event.set()
                 elif self._state == State.TESTING:
@@ -191,7 +207,7 @@ def resolve_script_path(path: str) -> Path:
 
 
 def write_cache(file: Path, cache: Cache):
-    print(f"writing cache file: '{file}'")
+    logger.info("writing cache file: '{}'", file)
     file.write_text(json.dumps(asdict(cache), indent=2))
 
 
@@ -202,7 +218,7 @@ def load_cache(path: Path) -> Cache:
 
 
 def download_file(url: str, out_file: Path, progress_bar: bool = True):
-    print(f"downloading '{url}'")
+    logger.info("downloading: '{}'", url)
     with out_file.open("wb") as f:
         with httpx.stream(
                 "GET",
@@ -226,18 +242,18 @@ def download_file(url: str, out_file: Path, progress_bar: bool = True):
                 for data in resp.iter_bytes(chunk_size=4096):
                     f.write(data)
 
-    print("download finished")
+    logger.info("download finished")
 
 
 def remove_old_extracted(cache: Cache):
-    print("removing old extracted files, if any")
+    logger.info("removing old extracted files, if any")
 
     dirs: list[Path] = []
 
     for file in cache.pkg_archive_extracted_files:
         p = Path(file).resolve()
         if p.exists() and p.is_file():
-            print(f"removing '{p}'")
+            logger.info("removing '{}'", p)
             p.unlink(missing_ok=True)
         elif p.is_dir():
             dirs.append(p)
@@ -247,9 +263,9 @@ def remove_old_extracted(cache: Cache):
         if is_empty:
             shutil.rmtree(d)
         else:
-            print(f"not removing non-empty directory: '{d}'")
+            logger.info("not removing non-empty directory: '{}'", d)
 
-    print("remove_old_extracted done")
+    logger.info("remove_old_extracted done")
 
 
 def already_extracted(archive_file: str, out_dir: Path, cache: Cache) -> bool:
@@ -272,12 +288,17 @@ def poke_file(file: Path, event: threading.Event):
         time.sleep(1)
 
 
+def move_file(src: Path, dst: Path):
+    logger.info("{} -> {}", src, dst)
+    shutil.move(src, dst)
+
+
 async def run_udk_build(
         watcher: LogWatcher,
         udk_lite_root: Path,
         building_event: threading.Event,
 ) -> int:
-    print("starting UDK build phase")
+    logger.info("starting UDK build phase")
 
     udk_exe = (udk_lite_root / "Binaries/Win64/UDK.com").resolve()
 
@@ -295,7 +316,7 @@ async def run_udk_build(
         ],
     )
 
-    print(f"proc: {proc}")
+    logger.info("proc: {}", proc)
 
     ok = building_event.wait(timeout=UDK_TEST_TIMEOUT)
 
@@ -306,10 +327,10 @@ async def run_udk_build(
     if not ok:
         raise RuntimeError("timed out waiting for UDK.exe (building_event) stop event")
 
-    print("UDK.exe finished")
+    logger.info("UDK.exe finished")
 
     ec = await proc.wait()
-    print(f"UDK.exe exited with code: {ec}")
+    logger.info("UDK.exe exited with code: {}", ec)
 
     if ec != 0:
         raise RuntimeError(f"UDK.exe error: {ec}")
@@ -323,7 +344,7 @@ async def run_udk_server(
         testing_event: threading.Event,
         udk_args: str,
 ) -> int:
-    print("starting UDK testing phase")
+    logger.info("starting UDK testing phase")
 
     udk_exe_norunaway = (udk_lite_root / "Binaries/Win64/UDK_norunaway.exe").resolve()
     udk_exe = (udk_lite_root / "Binaries/Win64/UDK.exe").resolve()
@@ -334,14 +355,12 @@ async def run_udk_server(
         dst = udk_exe.with_name("UDK.exe.backup")
 
         if dst.exists():
-            print(f"{dst} exists, assuming runaway loop detection executable already in use")
+            logger.info("{} exists, assuming runaway loop detection executable already in use", dst)
         else:
-            print("moving original UDK.exe to backup "
-                  "and replacing it with runaway loop detection patched variant")
-            print(f"{udk_exe} -> {dst}")
-            shutil.move(udk_exe, dst)
-            print(f"{udk_exe_norunaway} -> {udk_exe}")
-            shutil.move(udk_exe_norunaway, udk_exe)
+            logger.info("moving original UDK.exe to backup "
+                        "and replacing it with runaway loop detection patched variant")
+            move_file(udk_exe, dst)
+            move_file(udk_exe_norunaway, udk_exe)
 
     watcher.state = State.TESTING
     test_proc = await asyncio.create_subprocess_exec(
@@ -355,7 +374,7 @@ async def run_udk_server(
         ],
     )
 
-    print(f"proc: {test_proc}")
+    logger.info("proc: {}", test_proc)
 
     ok = testing_event.wait(timeout=UDK_TEST_TIMEOUT)
 
@@ -367,7 +386,7 @@ async def run_udk_server(
         raise RuntimeError("timed out waiting for UDK.exe (testing_event) stop event")
 
     test_ec = await test_proc.wait()
-    print(f"UDK.exe FCrypto test run exited with code: {test_ec}")
+    logger.info("UDK.exe FCrypto test run exited with code: {}", test_ec)
 
     return test_ec
 
@@ -377,7 +396,7 @@ def print_udk_processes(event: threading.Event):
         sleep_time = 0.01
         for proc in psutil.process_iter():
             if "udk" in proc.name().lower():
-                print(f"\t{'#' * 4} {proc}")
+                logger.info("{} {}", '#' * 4, proc)
                 sleep_time = 5.0
 
         time.sleep(sleep_time)
@@ -391,14 +410,14 @@ async def start_gmp_server(echo_server_path: Path):
         str(echo_server_path)
     )
 
-    print(f"{FCRYPTO_GMP_SERVER_PROC=}")
+    logger.info("FCRYPTO_GMP_SERVER_PROC={}", FCRYPTO_GMP_SERVER_PROC)
 
 
 async def stop_gmp_server():
     if FCRYPTO_GMP_SERVER_PROC:
         FCRYPTO_GMP_SERVER_PROC.terminate()
         ec = await FCRYPTO_GMP_SERVER_PROC.wait()
-        print(f"FCRYPTO_GMP_SERVER_PROC exited with code: {ec}")
+        logger.info("FCRYPTO_GMP_SERVER_PROC exited with code: {}", ec)
 
 
 async def main():
@@ -443,16 +462,17 @@ async def main():
         try:
             cache = load_cache(cache_file)
         except Exception as e:
-            print(f"error loading cache: {type(e).__name__}: {e}")
-            print(f"delete the cache file '{cache_file}' "
-                  f"or cache directory '{CACHE_DIR}' to force a hard reset")
+            logger.error("error loading cache: {} {}", type(e).__name__, e)
+            logger.info("delete the cache file '{}' "
+                        "or cache directory '{}' to force a hard reset",
+                        cache_file, CACHE_DIR)
             raise
     else:
         hard_reset = True
 
     if hard_reset:
-        print("hard reset requested")
-        print(f"removing '{CACHE_DIR}'")
+        logger.info("hard reset requested")
+        logger.info("removing '{}'", CACHE_DIR)
         shutil.rmtree(CACHE_DIR, ignore_errors=True)
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         write_cache(cache_file, cache)
@@ -667,7 +687,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as _e:
-        print(f"error running main: {_e}")
+        logger.error("error running man: {}", _e)
 
         if BUILDING_EVENT:
             BUILDING_EVENT.set()
