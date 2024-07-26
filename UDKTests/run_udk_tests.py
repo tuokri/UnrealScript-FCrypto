@@ -447,12 +447,22 @@ async def main():
         help="do not start gmp_server.py, assume already running",
         action="store_true",
     )
+    # TODO: is it stupid taking this from both args and env?
+    # ap.add_argument(
+    #     "--num-test-loops",
+    #     help="number of UScript test mutator test loops to run, "
+    #          "WARNING: running too many test loops can cause the"
+    #          "test mutator to hang forever, default %(default)s",
+    #     type=int,
+    #     default=defaults.FCRYPTO_NUM_TEST_LOOPS,
+    # )
 
     args = ap.parse_args()
     progress_bar = not args.no_progress_bar
     add_fw_rules = args.add_fw_rules
     gmp_server_path = Path(args.gmp_server_path).resolve()
     no_gmp_server = args.no_gmp_server
+    # num_test_loops = args.num_test_loops
 
     hard_reset = False
     cache = Cache()
