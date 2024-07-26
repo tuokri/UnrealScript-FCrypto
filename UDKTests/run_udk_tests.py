@@ -289,7 +289,7 @@ def poke_file(file: Path, event: threading.Event):
 
 
 def move_file(src: Path, dst: Path):
-    logger.info("{} -> {}", src, dst)
+    logger.info("'{}' -> '{}'", src, dst)
     shutil.move(src, dst)
 
 
@@ -499,11 +499,11 @@ async def main():
     if not udk_lite_root.is_absolute():
         udk_lite_root = (SCRIPT_DIR / udk_lite_root).resolve()
 
-    print(f"UDK_LITE_TAG={udk_lite_tag}")
-    print(f"UDK_LITE_ROOT={udk_lite_root}")
-    print(f"UDK_LITE_RELEASE_URL={udk_lite_release_url}")
-    print(f"FCRYPTO_CLASSES_FILES={fcrypto_classes_files}")
-    print(f"FCRYPTO_NUM_TEST_LOOPS={fcrypto_num_test_loops}")
+    logger.info("UDK_LITE_TAG={}", udk_lite_tag)
+    logger.info("UDK_LITE_ROOT={}", udk_lite_root)
+    logger.info("UDK_LITE_RELEASE_URL={}", udk_lite_release_url)
+    logger.info("FCRYPTO_CLASSES_FILES={}", fcrypto_classes_files)
+    logger.info("FCRYPTO_NUM_TEST_LOOPS={}", fcrypto_num_test_loops)
 
     input_uscript_files = [
         resolve_script_path(path) for path in
@@ -520,16 +520,18 @@ async def main():
     pkg_file = CACHE_DIR / Path(udk_lite_release_url).name
 
     if cache.udk_lite_tag != udk_lite_tag:
-        print(f"cached UDK-Lite tag '{cache.udk_lite_tag}' does not match '{udk_lite_tag}'")
+        logger.info("cached UDK-Lite tag '{}' does not match '{}'",
+                    cache.udk_lite_tag, udk_lite_tag)
         dl_pkg_archive = True
 
     pkg_file_outdated = cache.pkg_archive != str(pkg_file)
     if pkg_file_outdated:
         dl_pkg_archive = True
-        print(f"cached archive '{cache.pkg_archive}' does not match '{pkg_file}'")
+        logger.info("cached archive '{}' does not match '{}'",
+                    cache.pkg_archive, pkg_file)
 
     if not pkg_file.exists():
-        print(f"'{pkg_file}' does not exist")
+        logger.info("'{}' does not exist", pkg_file)
         dl_pkg_archive = True
 
     if dl_pkg_archive:
@@ -538,14 +540,14 @@ async def main():
         remove_old_extracted(cache)
         cache.pkg_archive_extracted_files = []
     else:
-        print(f"using cached archive: '{pkg_file}'")
+        logger.info("using cached archive: '{}'", pkg_file)
 
     # TODO: make a cache that updates itself automatically
     #   when fields are assigned. Just use diskcache?
     cache.pkg_archive = str(pkg_file)
     write_cache(cache_file, cache)
 
-    print(f"extracting '{pkg_file}'...")
+    logger.info("extracting '{}'...", pkg_file)
     with py7zr.SevenZipFile(pkg_file) as pkg:
         filenames = pkg.getnames()
         targets = [
@@ -572,7 +574,7 @@ async def main():
             Path(od).mkdir(parents=True, exist_ok=True)
 
         if targets:
-            print(f"extracting {len(targets)} targets to '{udk_lite_root}'")
+            logger.info("extracting {} targets to '{}'", len(targets), udk_lite_root)
             pkg.extract(udk_lite_root, targets)
 
         cache.pkg_archive_extracted_files += out_files + out_dirs
@@ -583,7 +585,7 @@ async def main():
         dst_dir = udk_lite_root / "Development/Src/FCrypto/Classes/"
         dst_dir.mkdir(parents=True, exist_ok=True)
         dst = dst_dir / script_file.name
-        print(f"'{script_file}' -> '{dst}'")
+        logger.info("'{}' -> '{}'", script_file, dst)
         shutil.copy(script_file, dst)
 
     log_dir = udk_lite_root / "UDKGame/Logs/"
@@ -603,7 +605,7 @@ async def main():
     watcher = LogWatcher(BUILDING_EVENT, TESTING_EVENT, log_file)
 
     if not log_file.exists():
-        print(f"'{log_file}' does not exist yet, touching...")
+        logger.info("'{}' does not exist yet, touching...", log_file)
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.touch()
 
@@ -636,7 +638,7 @@ async def main():
         cfg.write(f, space_around_delimiters=False)
 
     if add_fw_rules:
-        print("adding firewall rules for UDK.exe")
+        logger.info("adding firewall rules for UDK.exe")
         await (await asyncio.create_subprocess_exec(
             *["powershell.exe", str(UDK_FW_SCRIPT_PATH)]
         )).wait()
@@ -678,16 +680,15 @@ async def main():
 
     udk_print_spam_thread.join(timeout=5)
 
-    print(f"finished with {len(watcher.warnings)} warnings")
-    print(f"finished with {len(watcher.errors)} errors")
+    logger.info("finished with {} warnings", len(watcher.warnings))
+    logger.info("finished with {} errors", len(watcher.errors))
 
-    print("WARNINGS:")
+    logger.info("WARNINGS:")
     for warn in watcher.warnings:
-        print(warn.strip())
+        logger.warning(warn.strip())
 
-    print("ERRORS:")
     for err in watcher.errors:
-        print(err.strip())
+        logger.error(err.strip())
 
     if watcher.errors:
         raise RuntimeError("failed, errors detected")
