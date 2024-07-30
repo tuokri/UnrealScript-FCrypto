@@ -44,7 +44,7 @@ var private const array<int> C255_P;
 var private const array<int> C255_R2;
 var private const array<int> C255_A24;
 
-const ILEN = 32;
+const ILEN = 32; // 18 * SIZEOF_UINT16_T.
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
 {
