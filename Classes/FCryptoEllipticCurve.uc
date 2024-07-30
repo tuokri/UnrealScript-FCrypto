@@ -28,7 +28,37 @@ interface FCryptoEllipticCurve;
 
 enum EFCEllipticCurve
 {
-    FCEC_Curve25519
+    FCEC_Reserved,              // Not used.
+    FCEC_Sect163k1,             // Not used.
+    FCEC_Sect163r1,             // Not used.
+    FCEC_Sect163r2,             // Not used.
+    FCEC_Sect193r1,             // Not used.
+    FCEC_Sect193r2,             // Not used.
+    FCEC_Sect233k1,             // Not used.
+    FCEC_Sect233r1,             // Not used.
+    FCEC_Sect239k1,             // Not used.
+    FCEC_Sect283k1,             // Not used.
+    FCEC_Sect283r1,             // Not used.
+    FCEC_Sect409k1,             // Not used.
+    FCEC_Sect409r1,             // Not used.
+    FCEC_Sect571k1,             // Not used.
+    FCEC_Sect571r1,             // Not used.
+    FCEC_Secp160k1,             // Not used.
+    FCEC_Secp160r1,             // Not used.
+    FCEC_Secp160r2,             // Not used.
+    FCEC_Secp192k1,             // Not used.
+    FCEC_Secp192r1,             // Not used.
+    FCEC_Secp224k1,             // Not used.
+    FCEC_Secp224r1,             // Not used.
+    FCEC_Secp256k1,             // Not used.
+    FCEC_Secp256r1,             // TODO: Not used?
+    FCEC_Secp384r1,             // TODO: Not used?
+    FCEC_Secp521r1,             // TODO: Not used?
+    FCEC_BrainpoolP256r1,       // Not used.
+    FCEC_BrainpoolP384r1,       // Not used.
+    FCEC_BrainpoolP512r1,       // Not used.
+    FCEC_Curve25519,
+    FCEC_Curve448,              // Not used.
 };
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len);
