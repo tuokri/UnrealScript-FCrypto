@@ -57,7 +57,7 @@ var const array<int> K;
 
 static final function Sha2SmallRound(
     const out array<byte> Buf,
-    out int Val
+    out array<int> Val
 )
 {
     local int T1;
@@ -75,32 +75,147 @@ static final function Sha2SmallRound(
 
     W.Length = 64;
 
-    // br_range_dec32be(w, 16, buf);
-	// for (i = 16; i < 64; i ++) {
-	// 	w[i] = SSG2_1(w[i - 2]) + w[i - 7]
-	// 		+ SSG2_0(w[i - 15]) + w[i - 16];
-	// }
-	// a = val[0];
-	// b = val[1];
-	// c = val[2];
-	// d = val[3];
-	// e = val[4];
-	// f = val[5];
-	// g = val[6];
-	// h = val[7];
+    RangeDec32BE(W, 16, Buf);
 
     // TODO: unroll this.
-    for (i = 0; i < 64; i += 8)
+    for (i = 16; i < 64; ++i)
     {
-		`SHA2_STEP(a, b, c, d, e, f, g, h, i + 0);
-		`SHA2_STEP(h, a, b, c, d, e, f, g, i + 1);
-		`SHA2_STEP(g, h, a, b, c, d, e, f, i + 2);
-		`SHA2_STEP(f, g, h, a, b, c, d, e, i + 3);
-		`SHA2_STEP(e, f, g, h, a, b, c, d, i + 4);
-		`SHA2_STEP(d, e, f, g, h, a, b, c, i + 5);
-		`SHA2_STEP(c, d, e, f, g, h, a, b, i + 6);
-		`SHA2_STEP(b, c, d, e, f, g, h, a, i + 7);
-	}
+        w[i] = `SSG2_1(w[i - 2]) + w[i - 7]
+            + `SSG2_0(w[i - 15]) + w[i - 16];
+    }
+
+    a = Val[0];
+    b = Val[1];
+    c = Val[2];
+    d = Val[3];
+    e = Val[4];
+    f = Val[5];
+    g = Val[6];
+    h = Val[7];
+
+    // for (i = 0; i < 64; i += 8)
+    // {
+    //     `SHA2_STEP(a, b, c, d, e, f, g, h, i + 0);
+    //     `SHA2_STEP(h, a, b, c, d, e, f, g, i + 1);
+    //     `SHA2_STEP(g, h, a, b, c, d, e, f, i + 2);
+    //     `SHA2_STEP(f, g, h, a, b, c, d, e, i + 3);
+    //     `SHA2_STEP(e, f, g, h, a, b, c, d, i + 4);
+    //     `SHA2_STEP(d, e, f, g, h, a, b, c, i + 5);
+    //     `SHA2_STEP(c, d, e, f, g, h, a, b, i + 6);
+    //     `SHA2_STEP(b, c, d, e, f, g, h, a, i + 7);
+    // }
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 0 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 0 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 0 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 0 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 0 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 0 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 0 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 0 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 8 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 8 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 8 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 8 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 8 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 8 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 8 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 8 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 16 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 16 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 16 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 16 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 16 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 16 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 16 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 16 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 24 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 24 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 24 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 24 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 24 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 24 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 24 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 24 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 32 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 32 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 32 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 32 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 32 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 32 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 32 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 32 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 40 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 40 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 40 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 40 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 40 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 40 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 40 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 40 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 48 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 48 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 48 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 48 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 48 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 48 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 48 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 48 + 7);
+
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 56 + 0);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 56 + 1);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 56 + 2);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 56 + 3);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 56 + 4);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 56 + 5);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 56 + 6);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 56 + 7);
+
+    Val[0] += a;
+    Val[1] += b;
+    Val[2] += c;
+    Val[3] += d;
+    Val[4] += e;
+    Val[5] += f;
+    Val[6] += g;
+    Val[7] += h;
+}
+
+// TODO: make this a macro for performance?
+static final function RangeDec32BE(
+    out array<int> V,
+    int Num,
+    const out array<byte> Src
+)
+{
+    local int I;
+    local int SrcIdx;
+
+    SrcIdx = 0;
+    while (Num-- > 0)
+    {
+        V[I++] = Dec32BE(Src, SrcIdx);
+        SrcIdx += 4;
+    }
+}
+
+// TODO: make this a macro for performance?
+static final function int Dec32BE(
+    const out array<byte> Src,
+    optional int Idx = 0 // TODO: is this needed?
+)
+{
+    return (
+          Src[Idx + 0] << 24
+        | Src[Idx + 1] << 16
+        | Src[Idx + 2] << 8
+        | Src[Idx + 3]
+    );
 }
 
 DefaultProperties
