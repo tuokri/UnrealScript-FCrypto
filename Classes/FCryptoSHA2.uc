@@ -271,6 +271,36 @@ static final function Sha2SmallUpdate(
     }
 }
 
+static final function Sha2SmallOut(
+    const out FCryptoSHA224Context Cc,
+    out array<byte> Dst,
+    int Num
+)
+{
+    local byte Buf[64];
+    local int Val[8];
+    local int Ptr;
+
+    Ptr = Cc.Count & 63;
+    // class'FCryptoMemory'.static.MemCpy(Buf, Cf.Buf, Ptr);
+    // class'FCryptoMemory'.static.MemCpy(Val, CC.Val, 32 /* sizeof Val */);
+    Buf[Ptr++] = 0x80;
+    if (Ptr > 56)
+    {
+        // class'FCryptoMemory'.static.MemSet(Buf, 0, 64 - Ptr, Ptr);
+        // Sha2SmallRound(Buf, Val);
+        // class'FCryptoMemory'.static.MemSet(Buf, 0, 56);
+    }
+    else
+    {
+        class'FCryptoMemory'.static.MemSet(Buf, 0, 56 - Ptr, Ptr);
+    }
+
+    Enc64BE(Buf /* + 56 */, Cc.Count << 3); // TODO
+    // Sha2SmallRound(Buf, Val); // TODO
+    // RangeEnc32BE(Dst, Val, Num); // TODO
+}
+
 // TODO: make this a macro for performance?
 static final function RangeDec32BE(
     out array<int> V,
@@ -301,6 +331,28 @@ static final function int Dec32BE(
         | Src[Idx + 2] << 8
         | Src[Idx + 3]
     );
+}
+
+// TODO: make this a macro for performance?
+static final function Enc64BE(
+    out array<byte> Dst,
+    int X // TODO: need to use a QWORD here?
+)
+{
+	// br_enc32be(buf, (uint32_t)(x >> 32));
+	// br_enc32be(buf + 4, (uint32_t)x);
+}
+
+// TODO: make this a macro for performance?
+static final function Enc32BE(
+    out array<byte> Dst,
+    int X
+)
+{
+    Dst[0] = X >>> 24;
+    Dst[1] = X >>> 16;
+    Dst[2] = X >>> 8;
+    Dst[3] = X
 }
 
 DefaultProperties
