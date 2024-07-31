@@ -106,3 +106,15 @@ for non-critical data.
 #### HKDF
 
 #### Development TODOs
+
+For actual releases we'll want a versioned script package.
+Write a release generation script that copies only the needed
+script files into a versioned directory and compiles the release.
+
+1. Grab version tag from Git.
+2. Copy and rename files with the version appended.
+3. Final result should be something like FCrypto_0_1_0.u.
+
+This allows us to release new versions without causing compatibility
+issues with older versions while also discarding development and testing
+only files from the final release.
