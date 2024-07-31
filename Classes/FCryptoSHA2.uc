@@ -82,7 +82,7 @@ static final function Sha2SmallRound(
     //     w[i] = `SSG2_1(w[i - 2]) + w[i - 7]
     //         + `SSG2_0(w[i - 15]) + w[i - 16];
     // }
-
+    // TODO: do the math here manually.
     w[16] = `SSG2_1(w[16 - 2]) + w[16 - 7] + `SSG2_0(w[16 - 15]) + w[16 - 16];
     w[17] = `SSG2_1(w[17 - 2]) + w[17 - 7] + `SSG2_0(w[17 - 15]) + w[17 - 16];
     w[18] = `SSG2_1(w[18 - 2]) + w[18 - 7] + `SSG2_0(w[18 - 15]) + w[18 - 16];
@@ -152,77 +152,77 @@ static final function Sha2SmallRound(
     //     `SHA2_STEP(c, d, e, f, g, h, a, b, i + 6);
     //     `SHA2_STEP(b, c, d, e, f, g, h, a, i + 7);
     // }
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 0 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 0 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 0 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 0 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 0 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 0 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 0 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 0 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 0  /*0 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 1  /*0 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 2  /*0 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 3  /*0 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 4  /*0 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 5  /*0 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 6  /*0 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 7  /*0 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 8 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 8 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 8 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 8 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 8 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 8 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 8 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 8 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 8  /*8 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 9  /*8 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 10 /*8 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 11 /*8 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 12 /*8 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 13 /*8 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 14 /*8 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 15 /*8 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 16 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 16 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 16 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 16 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 16 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 16 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 16 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 16 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 16 /*16 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 17 /*16 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 18 /*16 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 19 /*16 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 20 /*16 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 21 /*16 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 22 /*16 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 23 /*16 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 24 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 24 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 24 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 24 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 24 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 24 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 24 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 24 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 24 /*24 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 25 /*24 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 26 /*24 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 27 /*24 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 28 /*24 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 29 /*24 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 30 /*24 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 31 /*24 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 32 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 32 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 32 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 32 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 32 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 32 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 32 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 32 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 32 /*32 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 33 /*32 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 34 /*32 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 35 /*32 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 36 /*32 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 37 /*32 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 38 /*32 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 39 /*32 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 40 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 40 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 40 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 40 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 40 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 40 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 40 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 40 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 40 /*40 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 41 /*40 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 42 /*40 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 43 /*40 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 44 /*40 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 45 /*40 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 46 /*40 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 47 /*40 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 48 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 48 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 48 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 48 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 48 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 48 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 48 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 48 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 48 /*48 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 49 /*48 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 50 /*48 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 51 /*48 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 52 /*48 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 53 /*48 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 54 /*48 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 55 /*48 + 7*/);
 
-    `SHA2_STEP(a, b, c, d, e, f, g, h, 56 + 0);
-    `SHA2_STEP(h, a, b, c, d, e, f, g, 56 + 1);
-    `SHA2_STEP(g, h, a, b, c, d, e, f, 56 + 2);
-    `SHA2_STEP(f, g, h, a, b, c, d, e, 56 + 3);
-    `SHA2_STEP(e, f, g, h, a, b, c, d, 56 + 4);
-    `SHA2_STEP(d, e, f, g, h, a, b, c, 56 + 5);
-    `SHA2_STEP(c, d, e, f, g, h, a, b, 56 + 6);
-    `SHA2_STEP(b, c, d, e, f, g, h, a, 56 + 7);
+    `SHA2_STEP(a, b, c, d, e, f, g, h, 56 /*56 + 0*/);
+    `SHA2_STEP(h, a, b, c, d, e, f, g, 57 /*56 + 1*/);
+    `SHA2_STEP(g, h, a, b, c, d, e, f, 58 /*56 + 2*/);
+    `SHA2_STEP(f, g, h, a, b, c, d, e, 59 /*56 + 3*/);
+    `SHA2_STEP(e, f, g, h, a, b, c, d, 60 /*56 + 4*/);
+    `SHA2_STEP(d, e, f, g, h, a, b, c, 61 /*56 + 5*/);
+    `SHA2_STEP(c, d, e, f, g, h, a, b, 62 /*56 + 6*/);
+    `SHA2_STEP(b, c, d, e, f, g, h, a, 63 /*56 + 7*/);
 
     Val[0] += a;
     Val[1] += b;
