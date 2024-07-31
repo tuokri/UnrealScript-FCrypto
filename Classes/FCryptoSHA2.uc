@@ -233,6 +233,19 @@ static final function Sha2SmallRound(
     Val[7] += h;
 }
 
+static final function Sha2SmallUpdate(
+    FCryptoSHA224Context Cc,
+    const out array<byte> Data,
+    int Len
+)
+{
+    local int Ptr;
+
+    // TODO: can we simply use 32 bit integers here?
+    // TODO: if not, use QWORDs?
+    Ptr = Cc.Count & 63;
+}
+
 // TODO: make this a macro for performance?
 static final function RangeDec32BE(
     out array<int> V,
