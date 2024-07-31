@@ -62,7 +62,6 @@ static final function Sha2SmallRound(
 {
     local int T1;
     local int T2;
-    local int i;
     local int A;
     local int B;
     local int C;
@@ -234,16 +233,41 @@ static final function Sha2SmallRound(
 }
 
 static final function Sha2SmallUpdate(
-    FCryptoSHA224Context Cc,
+    out FCryptoSHA224Context Cc,
     const out array<byte> Data,
     int Len
 )
 {
     local int Ptr;
+    local int CLen;
+    local int DataIdx;
+
+    DataIdx = 0;
 
     // TODO: can we simply use 32 bit integers here?
     // TODO: if not, use QWORDs?
     Ptr = Cc.Count & 63;
+    Cc.Count += Len;
+    while (Len > 0)
+    {
+        CLen = 64 - Ptr;
+        if (CLen > Len)
+        {
+            CLen = Len;
+        }
+        // TODO: move memory functions to dedicated file.
+        class'FCryptoMemory'.static.MemMove_StaticBytes_64(Cc.Buf, Data, CLen, Ptr, DataIdx);
+        Ptr += CLen;
+        DataIdx += CLen;
+        Len -= CLen;
+
+        if (Ptr == 64)
+        {
+            // TODO: need a static variant of this func?
+            // Sha2SmallRound(Cc.Buf, Cc.Val);
+            Ptr = 0;
+        }
+    }
 }
 
 // TODO: make this a macro for performance?

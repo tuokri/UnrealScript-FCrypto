@@ -23,15 +23,22 @@
  * SOFTWARE.
  */
 
+// TODO: call this something else like FCryptoDetails
+//       and put all "utility" structs here instead of
+//       just (hash) contexts?
 class FCryptoContext extends Object
     abstract
     notplaceable;
 
 struct FCryptoHashContext
 {
-    var int Count; // TODO: might need to use QWORD for this.
+    // TODO: might need to use QWORD for this?
+    // A 32-bit signed integer is probably enough
+    // for our use cases though.
+    var int Count;
 };
 
 struct FCryptoSHA224Context extends FCryptoHashContext
 {
+    var byte Buf[64];
 };
