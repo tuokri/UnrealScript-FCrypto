@@ -293,10 +293,10 @@ static final function Sha2SmallOut(
     }
     else
     {
-        class'FCryptoMemory'.static.MemSet(Buf, 0, 56 - Ptr, Ptr);
+        // class'FCryptoMemory'.static.MemSet(Buf, 0, 56 - Ptr, Ptr);
     }
 
-    Enc64BE(Buf /* + 56 */, Cc.Count << 3); // TODO
+    // Enc64BE(Buf /* + 56 */, Cc.Count << 3); // TODO
     // Sha2SmallRound(Buf, Val); // TODO
     // RangeEnc32BE(Dst, Val, Num); // TODO
 }
@@ -349,10 +349,10 @@ static final function Enc32BE(
     int X
 )
 {
-    Dst[0] = X >>> 24;
-    Dst[1] = X >>> 16;
-    Dst[2] = X >>> 8;
-    Dst[3] = X
+    Dst[0] = byte(X >>> 24);
+    Dst[1] = byte(X >>> 16);
+    Dst[2] = byte(X >>>  8);
+    Dst[3] = byte(X       );
 }
 
 DefaultProperties
