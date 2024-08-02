@@ -1,0 +1,18 @@
+`define MEMMOVE_IMPL_STATIC_DST_64                      \
+    local int ByteIndex;                                \
+    local int I;                                        \
+    local byte DstBytes[64];                            \
+                                                        \
+    ByteIndex = 0;                                      \
+    I = SrcOffset;                                      \
+                                                        \
+    while (ByteIndex < NumBytes)                        \
+    {                                                   \
+        DstBytes[ByteIndex++] = Src[I++];               \
+    }                                                   \
+                                                        \
+    ByteIndex = DstOffset;                              \
+    for (I = 0; I < NumBytes; ++I)                      \
+    {                                                   \
+        Dst[ByteIndex++] = DstBytes[I];                 \
+    }                                                   \

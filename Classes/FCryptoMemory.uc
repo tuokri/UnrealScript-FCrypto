@@ -55,25 +55,7 @@ class FCryptoMemory extends Object
     notplaceable;
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
-
-`define MEMMOVE_IMPL_STATIC_DST_64                      \
-    local int ByteIndex;                                \
-    local int I;                                        \
-    local byte DstBytes[64];                            \
-                                                        \
-    ByteIndex = 0;                                      \
-    I = SrcOffset;                                      \
-                                                        \
-    while (ByteIndex < NumBytes)                        \
-    {                                                   \
-        DstBytes[ByteIndex++] = Src[I++];               \
-    }                                                   \
-                                                        \
-    ByteIndex = DstOffset;                              \
-    for (I = 0; I < NumBytes; ++I)                      \
-    {                                                   \
-        Dst[ByteIndex++] = DstBytes[I];                 \
-    }                                                   \
+`include(FCrypto\Classes\FCryptoMemoryMacros.uci);
 
 static final function MemMove_SBytes_SBytes_64(
     out byte Dst[64],
@@ -83,7 +65,7 @@ static final function MemMove_SBytes_SBytes_64(
     optional int SrcOffset = 0
 )
 {
-    `MEMMOVE_IMPL_STATIC_DST_64
+    `MEMMOVE_IMPL_STATIC_DST_64();
 }
 
 static final function MemMove_SBytes_DBytes_64(
@@ -94,7 +76,7 @@ static final function MemMove_SBytes_DBytes_64(
     optional int SrcOffset = 0
 )
 {
-    `MEMMOVE_IMPL_STATIC_DST_64
+    `MEMMOVE_IMPL_STATIC_DST_64();
 }
 
 // static final function MemMove_SInts_DBytes_64(
