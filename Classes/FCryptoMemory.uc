@@ -56,6 +56,25 @@ class FCryptoMemory extends Object
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
 
+`define MEMMOVE_IMPL_STATIC_DST_64                      \
+    local int ByteIndex;                                \
+    local int I;                                        \
+    local byte DstBytes[64];                            \
+                                                        \
+    ByteIndex = 0;                                      \
+    I = SrcOffset;                                      \
+                                                        \
+    while (ByteIndex < NumBytes)                        \
+    {                                                   \
+        DstBytes[ByteIndex++] = Src[I++];               \
+    }                                                   \
+                                                        \
+    ByteIndex = DstOffset;                              \
+    for (I = 0; I < NumBytes; ++I)                      \
+    {                                                   \
+        Dst[ByteIndex++] = DstBytes[I];                 \
+    }                                                   \
+
 static final function MemMove_SBytes_SBytes_64(
     out byte Dst[64],
     const out byte Src[64],
@@ -64,23 +83,7 @@ static final function MemMove_SBytes_SBytes_64(
     optional int SrcOffset = 0
 )
 {
-    local int ByteIndex;
-    local int I;
-    local byte DstBytes[64];
-
-    ByteIndex = 0;
-    I = SrcOffset;
-
-    while (ByteIndex < NumBytes)
-    {
-        DstBytes[ByteIndex++] = Src[I++];
-    }
-
-    ByteIndex = DstOffset;
-    for (I = 0; I < NumBytes; ++I)
-    {
-        Dst[ByteIndex++] = DstBytes[I];
-    }
+    `MEMMOVE_IMPL_STATIC_DST_64
 }
 
 static final function MemMove_SBytes_DBytes_64(
@@ -91,21 +94,16 @@ static final function MemMove_SBytes_DBytes_64(
     optional int SrcOffset = 0
 )
 {
-    local int ByteIndex;
-    local int I;
-    local byte DstBytes[64];
-
-    ByteIndex = 0;
-    I = SrcOffset;
-
-    while (ByteIndex < NumBytes)
-    {
-        DstBytes[ByteIndex++] = Src[I++];
-    }
-
-    ByteIndex = DstOffset;
-    for (I = 0; I < NumBytes; ++I)
-    {
-        Dst[ByteIndex++] = DstBytes[I];
-    }
+    `MEMMOVE_IMPL_STATIC_DST_64
 }
+
+// static final function MemMove_SInts_DBytes_64(
+//     out int Dst[64],
+//     const out array<byte> Src,
+//     int NumBytes,
+//     optional int DstOffset = 0,
+//     optional int SrcOffset = 0
+// )
+// {
+
+// }

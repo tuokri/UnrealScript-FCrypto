@@ -41,4 +41,5 @@ struct FCryptoHashContext
 struct FCryptoSHA224Context extends FCryptoHashContext
 {
     var byte Buf[64];
+    var int Val[8];
 };
