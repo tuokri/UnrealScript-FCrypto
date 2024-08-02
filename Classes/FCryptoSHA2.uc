@@ -255,9 +255,8 @@ static final function Sha2SmallUpdate(
         {
             CLen = Len;
         }
-        // TODO: move memory functions to dedicated file.
-        // TODO: different functions for all combinations of dynamic + static array params?
-        // class'FCryptoMemory'.static.MemMove_StaticBytes_64(Cc.Buf, Data, CLen, Ptr, DataIdx);
+        // TODO: move all memory functions to dedicated file.
+        class'FCryptoMemory'.static.MemMove_SBytes_DBytes_64(Cc.Buf, Data, CLen, Ptr, DataIdx);
         Ptr += CLen;
         DataIdx += CLen;
         Len -= CLen;
