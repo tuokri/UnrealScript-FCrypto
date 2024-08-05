@@ -148,8 +148,8 @@ static final function Sha2SmallOut(
     local int Ptr;
 
     Ptr = Cc.Count & 63;
-    // class'FCryptoMemory'.static.MemCpy(Buf, Cf.Buf, Ptr);
-    // class'FCryptoMemory'.static.MemCpy(Val, CC.Val, 32 /* sizeof Val */);
+    class'FCryptoMemory'.static.MemCpy_SBytes_SBytes_64(Buf, Cc.Buf, Ptr);
+    class'FCryptoMemory'.static.MemCpy_SInts_SInts_8(Val, CC.Val, 32 /* sizeof Val */);
     Buf[Ptr++] = 0x80;
     if (Ptr > 56)
     {

@@ -87,5 +87,74 @@ static final function MemMove_SBytes_DBytes_64(
 //     optional int SrcOffset = 0
 // )
 // {
-
 // }
+
+static final function MemCpy_SBytes_SBytes_64(
+    out byte Dst[64],
+    const out byte Src[64],
+    int NumBytes,
+    optional int DstOffset = 0,
+    optional int SrcOffset = 0
+)
+{
+    // TODO: optimized memcpy for non-overlapping arrays?
+    `MEMMOVE_IMPL_STATIC_DST_64();
+}
+
+static final function MemCpy_SInts_SInts_8(
+    out int Dst[8],
+    const out int Src[8],
+    int NumBytes,
+    optional int DstOffset = 0,
+    optional int SrcOffset = 0
+)
+{
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+    local array<byte> DstBytes;
+    local int DstTmp;
+    local int MaxIntIndex;
+
+    DstBytes.Length = NumBytes;
+
+    /*
+     * Take all 16-bit integers from Src and put them
+     * into DstBytes byte array, taking SrcOffset into account.
+     */
+    IntIndex = SrcOffset;
+    ByteIndex = 0;
+    Shift = 8;
+    while (ByteIndex < NumBytes)
+    {
+        DstBytes[ByteIndex] = (Src[IntIndex] >>> Shift) & 0xff;
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
+        ++ByteIndex;
+    }
+
+    /*
+     * Write DstBytes into Dst, taking DstOffset into account.
+     */
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = DstOffset;
+
+    for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        // `fcsdebug("IntIndex=" $ IntIndex);
+
+        // TODO: is DstTmp needed? (Also check other memory functions).
+        DstTmp = (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift);
+        Dst[IntIndex] = DstTmp;
+
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
+        Mask = 0xff << Shift;
+    }
+}
