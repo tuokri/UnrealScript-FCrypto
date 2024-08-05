@@ -115,7 +115,6 @@ static final function MemCpy_SInts_SInts_8(
     local int Mask;
     local array<byte> DstBytes;
     local int DstTmp;
-    local int MaxIntIndex;
 
     DstBytes.Length = NumBytes;
 
