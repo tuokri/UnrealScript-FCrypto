@@ -55,10 +55,6 @@ static final function Sha2SmallRound(
     local int F;
     local int G;
     local int H;
-    // TODO: make this a static array? Does it make sense?
-    //       If we do that, we'll also have to modify RangeDec32BE
-    //       to take int a static array (and also implement multiple)
-    //       variants for different array sizes.
     local array<int> W;
 
     W.Length = 64;
@@ -85,16 +81,9 @@ static final function Sha2SmallRound_SBuf64_SVal8(
     local int F;
     local int G;
     local int H;
-    // TODO: make this a static array? Does it make sense?
-    //       If we do that, we'll also have to modify RangeDec32BE
-    //       to take int a static array (and also implement multiple)
-    //       variants for different array sizes.
-    local array<int> W;
+    local int W[64];
 
-    W.Length = 64;
-
-    // TODO: we definitely need multiple variants of this too.
-    // RangeDec32BE(W, 16, Buf);
+    RangeDec32BE_Static64(W, 16, Buf);
 
     `SHA_224_BODY();
 }
@@ -153,18 +142,18 @@ static final function Sha2SmallOut(
     Buf[Ptr++] = 0x80;
     if (Ptr > 56)
     {
-        // class'FCryptoMemory'.static.MemSet(Buf, 0, 64 - Ptr, Ptr);
-        // Sha2SmallRound(Buf, Val);
-        // class'FCryptoMemory'.static.MemSet(Buf, 0, 56);
+        class'FCryptoMemory'.static.MemSet_SBytes64(Buf, 0, 64 - Ptr, Ptr);
+        Sha2SmallRound_SBuf64_SVal8(Buf, Val);
+        class'FCryptoMemory'.static.MemSet_SBytes64(Buf, 0, 56);
     }
     else
     {
-        // class'FCryptoMemory'.static.MemSet(Buf, 0, 56 - Ptr, Ptr);
+        class'FCryptoMemory'.static.MemSet_SBytes64(Buf, 0, 56 - Ptr, Ptr);
     }
 
-    // Enc64BE(Buf /* + 56 */, Cc.Count << 3); // TODO
-    // Sha2SmallRound(Buf, Val); // TODO
-    // RangeEnc32BE(Dst, Val, Num); // TODO
+    Enc64BE_Static64(Buf, Cc.Count << 3, 56); // TODO: QWORD impl?
+    Sha2SmallRound_SBuf64_SVal8(Buf, Val);
+    RangeEnc32BE_SVal8(Dst, Val, Num);
 }
 
 // TODO: make this a macro for performance?
@@ -185,6 +174,23 @@ static final function RangeDec32BE(
     }
 }
 
+static final function RangeDec32BE_Static64(
+    out int V[64],
+    int Num,
+    const out byte Src[64]
+)
+{
+    local int I;
+    local int SrcIdx;
+
+    SrcIdx = 0;
+    while (Num-- > 0)
+    {
+        V[I++] = Dec32BE_Static64(Src, SrcIdx);
+        SrcIdx += 4;
+    }
+}
+
 // TODO: make this a macro for performance?
 static final function int Dec32BE(
     const out array<byte> Src,
@@ -200,25 +206,108 @@ static final function int Dec32BE(
 }
 
 // TODO: make this a macro for performance?
-static final function Enc64BE(
-    out array<byte> Dst,
-    int X // TODO: need to use a QWORD here?
+static final function int Dec32BE_Static64(
+    const out byte Src[64],
+    optional int Idx = 0 // TODO: is this needed?
 )
 {
+    return (
+          Src[Idx + 0] << 24
+        | Src[Idx + 1] << 16
+        | Src[Idx + 2] << 8
+        | Src[Idx + 3]
+    );
+}
+
+// TODO: make this a macro for performance?
+static final function Enc64BE_Static64(
+    out byte Dst[64],
+    int X, // TODO: need to use a QWORD here?
+    optional int Offset = 0
+)
+{
+    // TODO: QWORD impl here?
 	// br_enc32be(buf, (uint32_t)(x >> 32));
 	// br_enc32be(buf + 4, (uint32_t)x);
+
+    Enc32BE_Static64(Dst, X, Offset);
 }
 
 // TODO: make this a macro for performance?
 static final function Enc32BE(
     out array<byte> Dst,
-    int X
+    int X,
+    optional int Offset = 0
 )
 {
-    Dst[0] = byte(X >>> 24);
-    Dst[1] = byte(X >>> 16);
-    Dst[2] = byte(X >>>  8);
-    Dst[3] = byte(X       );
+    Dst[Offset + 0] = byte(X >>> 24);
+    Dst[Offset + 1] = byte(X >>> 16);
+    Dst[Offset + 2] = byte(X >>>  8);
+    Dst[Offset + 3] = byte(X       );
+}
+
+static final function Enc32BE_Static64(
+    out byte Dst[64],
+    int X,
+    optional int Offset = 0
+)
+{
+    Dst[Offset + 0] = byte(X >>> 24);
+    Dst[Offset + 1] = byte(X >>> 16);
+    Dst[Offset + 2] = byte(X >>>  8);
+    Dst[Offset + 3] = byte(X       );
+}
+
+static final function RangeEnc32BE_SVal8(
+    out array<byte> Dst,
+    const out int Val[8],
+    int Num
+)
+{
+    local int Offset;
+    local int V;
+    local int VIdx;
+
+    Offset = 0;
+    VIdx = 0;
+    while (Num-- > 0)
+    {
+        V = Val[VIdx++];
+        Enc32BE(Dst, V, Offset);
+        Offset += 4;
+    }
+}
+
+static final function Sha224Init(out FCryptoSHA224Context Cc)
+{
+    Cc.Val[0] = default.SHA224_IV[0];
+    Cc.Val[1] = default.SHA224_IV[1];
+    Cc.Val[2] = default.SHA224_IV[2];
+    Cc.Val[3] = default.SHA224_IV[3];
+    Cc.Val[4] = default.SHA224_IV[4];
+    Cc.Val[5] = default.SHA224_IV[5];
+    Cc.Val[5] = default.SHA224_IV[5];
+    Cc.Val[6] = default.SHA224_IV[6];
+    Cc.Val[7] = default.SHA224_IV[7];
+}
+
+// TODO: what's the point of this abstraction?
+static final function Sha224Update(
+    out FCryptoSHA224Context Cc,
+    const out array<byte> Data,
+    int Len
+)
+{
+    Sha2SmallUpdate(Cc, Data, Len);
+}
+
+static final function Sha256Update(
+    out FCryptoSHA224Context Cc,
+    const out array<byte> Data,
+    int Len
+)
+{
+    Sha2SmallUpdate(Cc, Data, Len);
 }
 
 DefaultProperties

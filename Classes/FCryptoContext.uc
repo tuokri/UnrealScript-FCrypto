@@ -36,10 +36,19 @@ struct FCryptoHashContext
     // A 32-bit signed integer is probably enough
     // for our use cases though.
     var int Count;
+
+    StructDefaultProperties
+    {
+        Count=0
+    }
 };
 
 struct FCryptoSHA224Context extends FCryptoHashContext
 {
     var byte Buf[64];
     var int Val[8];
+
+    StructDefaultProperties
+    {
+    }
 };

@@ -157,3 +157,23 @@ static final function MemCpy_SInts_SInts_8(
         Mask = 0xff << Shift;
     }
 }
+
+/**
+ * C-style memset operation.
+ * Offset is the number of byte values
+ * to ignore from the beginning of S.
+ */
+static final function MemSet_SBytes64(
+    out byte S[64],
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int ByteIndex;
+
+    for (ByteIndex = Offset; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[ByteIndex] = C;
+    }
+}
