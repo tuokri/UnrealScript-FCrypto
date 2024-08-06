@@ -144,8 +144,6 @@ static final function MemCpy_SInts_SInts_8(
 
     for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
     {
-        // `fcsdebug("IntIndex=" $ IntIndex);
-
         // TODO: is DstTmp needed? (Also check other memory functions).
         DstTmp = (Dst[IntIndex] & ~Mask) | ((DstBytes[ByteIndex] & 0xff) << Shift);
         Dst[IntIndex] = DstTmp;

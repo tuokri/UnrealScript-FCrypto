@@ -9,11 +9,11 @@
 `define SSG2_1(x)       (`ROTR(`x, 17) ^ `ROTR(`x, 19) ^ ((`x) >>> 10))
 
 
-`define SHA2_STEP(A, B, C, D, E, F, G, H, j)                            \
-        T1 = `H + `BSG2_1(E) + `CH(`E, `F, `G) + default.K[`j] + w[`j]; \
-        T2 = `BSG2_0(`A) + `MAJ(`A, `B, `C);                            \
-        `D += T1;                                                       \
-        `H = T1 + T2;                                                   \
+`define SHA2_STEP(A, B, C, D, E, F, G, H, j)                                  \
+        T1 = `H + `BSG2_1(E) + `CH(`E, `F, `G) + default.K_SMALL[`j] + w[`j]; \
+        T2 = `BSG2_0(`A) + `MAJ(`A, `B, `C);                                  \
+        `D += T1;                                                             \
+        `H = T1 + T2;                                                         \
 
 // for (i = 16; i < 64; ++i)
 // {
