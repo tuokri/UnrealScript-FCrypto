@@ -341,6 +341,27 @@ static final function AesCtOrtho(out array<int> Q)
 
 static final function int SubWord(int X)
 {
+    local array<int> Q;
+    // local int I;
+
+    Q.Length = 8;
+    // for (I = 0; I < 8; ++I)
+    // {
+    //     Q[I] = X;
+    // }
+    Q[0] = X;
+    Q[1] = X;
+    Q[2] = X;
+    Q[3] = X;
+    Q[4] = X;
+    Q[5] = X;
+    Q[6] = X;
+    Q[7] = X;
+
+    AesCtOrtho(Q);
+    AesCtBitSliceSBox(Q);
+    AesCtOrtho(Q);
+    return Q[0];
 }
 
 static final function int AesCtKeySched(
@@ -349,6 +370,76 @@ static final function int AesCtKeySched(
     int KeyLen
 )
 {
+    local int NumRounds;
+    local int I;
+    local int J;
+    local int K;
+    local int Nk;
+    local int Nkf;
+    local int Tmp;
+    local array<int> SKey;
+
+    SKey.Length = 120;
+
+    switch (KeyLen)
+    {
+        case 16:
+            NumRounds = 10;
+            break;
+        case 24:
+            NumRounds = 12;
+            break;
+        case 32:
+            NumRounds = 14;
+            break;
+        default:
+            // TODO: log error?
+            return 0;
+    }
+
+    Nk = KeyLen >>> 2;
+    Nkf = (NumRounds + 1) << 2;
+    Tmp = 0;
+    for (I = 0; I < Nk; ++I)
+    {
+        // TODO: dedicated file for Enc/Dec functions?
+        // Tmp = Dec32LE(Key, I << 2);
+        SKey[(I << 1)    ] = Tmp;
+        SKey[(I << 1) + 1] = Tmp;
+    }
+    J = 0;
+    K = 0;
+    for (I = Nk; I < Nkf; ++I)
+    {
+        if (J == 0)
+        {
+            Tmp = (Tmp << 24) | (Tmp >>> 8);
+            Tmp = SubWord(Tmp) ^ default.RCon[K];
+        }
+        else if (Nk > 6 && J == 4)
+        {
+            Tmp = SubWord(Tmp);
+        }
+        Tmp = Tmp ^ (SKey[(I - Nk) << 1]);
+        SKey[(I << 1)    ] = Tmp;
+        SKey[(I << 1) + 1] = Tmp;
+        if (++J == Nk)
+        {
+            J = 0;
+            ++K;
+        }
+    }
+    for (I = 0; I < Nkf; I += 4)
+    {
+        AesCtOrtho(SKey + (I << 1));
+    }
+    J = 0;
+    for (I = 0; I < Nkf; ++I)
+    {
+        CompSkey[I] = (SKey[J] & 0x55555555) | (SKey[J + 1] & 0xAAAAAAAA);
+        J += 2;
+    }
+    return NumRounds;
 }
 
 static final function AesCtSKeyExpand(
@@ -357,6 +448,24 @@ static final function AesCtSKeyExpand(
     const out array<int> CompSKey
 )
 {
+    local int U;
+    local int V;
+    local int N;
+    local int X;
+    local int Y;
+
+    N = (NumRounds + 1) << 2;
+    V = 0;
+    for (U = 0; U < N; ++U)
+    {
+        X = CompSKey[U];
+        Y = CompSKey[U];
+        X = X & 0x55555555;
+        SKey[V    ] = X | (X << 1);
+        Y = Y & 0xAAAAAAAA;
+        SKey[V + 1] = Y | (Y >>> 1);
+        V += 2;
+    }
 }
 
 DefaultProperties
