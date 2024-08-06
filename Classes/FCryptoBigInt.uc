@@ -1712,7 +1712,7 @@ static final function int ModDiv(
         Pb = 0;
         Qa = 0;
         Qb = 1;
-        for (I = 0; I < 15; ++I)
+        for (I = 0; I < 15; ++I) // TODO: can be unrolled.
         {
             /*
              * At each iteration:

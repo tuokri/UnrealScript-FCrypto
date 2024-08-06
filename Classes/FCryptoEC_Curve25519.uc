@@ -76,7 +76,7 @@ private static final function CSwap(
     local int Tw;
 
     Ctl = -Ctl;
-    for (I = 0; I < 28; ++I)
+    for (I = 0; I < 28; ++I) // TODO: can be unrolled.
     {
         Aw = A[I];
         Bw = B[I];
@@ -145,7 +145,7 @@ private static final function ByteSwap(
     local int I;
     local byte T;
 
-    for (I = 0; I < 16; ++I)
+    for (I = 0; I < 16; ++I) // TODO: can be unrolled.
     {
         T = G[I];
         G[I] = G[31 - I];
@@ -298,15 +298,15 @@ static final function int Mul(
      * since the exponent contains almost only ones.
      */
     class'FCryptoBigInt'.static.MemMove(A, Z2, ILEN);
-    for (I = 0; I < 15; ++I)
+    for (I = 0; I < 15; ++I) // TODO: can be unrolled.
     {
         C255Mul(A, A, A);
         C255Mul(A, A, Z2);
     }
     class'FCryptoBigInt'.static.MemMove(B, A, ILEN);
-    for (I = 0; I < 14; ++I)
+    for (I = 0; I < 14; ++I) // TODO: can be unrolled.
     {
-        for (J = 0; J < 16; ++J)
+        for (J = 0; J < 16; ++J) // TODO: can be unrolled.
         {
             C255Mul(B, B, B);
         }
