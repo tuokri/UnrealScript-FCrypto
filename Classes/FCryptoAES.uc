@@ -431,7 +431,8 @@ static final function int AesCtKeySched(
     }
     for (I = 0; I < Nkf; I += 4)
     {
-        AesCtOrtho(SKey + (I << 1));
+        // TODO: take in offset.
+        // AesCtOrtho(SKey + (I << 1));
     }
     J = 0;
     for (I = 0; I < Nkf; ++I)
