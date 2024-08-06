@@ -30,6 +30,8 @@ class FCryptoContext extends Object
     abstract
     notplaceable;
 
+`include(FCrypto\Classes\FCryptoSHA2Constants.uci);
+
 struct FCryptoHashContext
 {
     // TODO: might need to use QWORD for this?
@@ -50,5 +52,13 @@ struct FCryptoSHA224Context extends FCryptoHashContext
 
     StructDefaultProperties
     {
+        Val(0)=SHA224_IV_VAL0
+        Val(1)=SHA224_IV_VAL1
+        Val(2)=SHA224_IV_VAL2
+        Val(3)=SHA224_IV_VAL3
+        Val(4)=SHA224_IV_VAL4
+        Val(5)=SHA224_IV_VAL5
+        Val(6)=SHA224_IV_VAL6
+        Val(7)=SHA224_IV_VAL7
     }
 };

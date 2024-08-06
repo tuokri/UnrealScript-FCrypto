@@ -35,6 +35,7 @@ class FCryptoSHA2 extends Object;
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
 `include(FCrypto\Classes\FCryptoSHA2Macros.uci);
+`include(FCrypto\Classes\FCryptoSHA2Constants.uci);
 
 var const array<int> SHA224_IV;
 var const array<int> SHA256_IV;
@@ -279,6 +280,7 @@ static final function RangeEnc32BE_SVal8(
     }
 }
 
+// TODO: do we need this in UScript?
 static final function Sha224Init(out FCryptoSHA224Context Cc)
 {
     Cc.Val[0] = default.SHA224_IV[0];
@@ -287,9 +289,8 @@ static final function Sha224Init(out FCryptoSHA224Context Cc)
     Cc.Val[3] = default.SHA224_IV[3];
     Cc.Val[4] = default.SHA224_IV[4];
     Cc.Val[5] = default.SHA224_IV[5];
-    Cc.Val[5] = default.SHA224_IV[5];
-    Cc.Val[6] = default.SHA224_IV[6];
-    Cc.Val[7] = default.SHA224_IV[7];
+    Cc.Val[5] = default.SHA224_IV[6];
+    Cc.Val[6] = default.SHA224_IV[7];
 }
 
 // TODO: what's the point of this abstraction?
@@ -314,8 +315,8 @@ static final function Sha256Update(
 DefaultProperties
 {
     SHA224_IV={(
-        0xC1059ED8, 0x367CD507, 0x3070DD17, 0xF70E5939,
-        0xFFC00B31, 0x68581511, 0x64F98FA7, 0xBEFA4FA4
+        SHA224_IV_VAL0, SHA224_IV_VAL1, SHA224_IV_VAL2, SHA224_IV_VAL3,
+        SHA224_IV_VAL4, SHA224_IV_VAL5, SHA224_IV_VAL6, SHA224_IV_VAL7
     )}
 
     SHA256_IV={(
