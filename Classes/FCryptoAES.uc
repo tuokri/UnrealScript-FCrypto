@@ -318,25 +318,28 @@ static final function AesCtBitSliceSBox(out array<int> Q)
     Q[0] = S7;
 }
 
-static final function AesCtOrtho(out array<int> Q)
+static final function AesCtOrtho(
+    out array<int> Q,
+    optional int Offset = 0
+)
 {
     local int A;
     local int B;
 
-    `SWAP2(Q[0], Q[1]);
-    `SWAP2(Q[2], Q[3]);
-    `SWAP2(Q[4], Q[5]);
-    `SWAP2(Q[6], Q[7]);
+    `SWAP2(Q[Offset + 0], Q[Offset + 1]);
+    `SWAP2(Q[Offset + 2], Q[Offset + 3]);
+    `SWAP2(Q[Offset + 4], Q[Offset + 5]);
+    `SWAP2(Q[Offset + 6], Q[Offset + 7]);
 
-    `SWAP4(Q[0], Q[2]);
-    `SWAP4(Q[1], Q[3]);
-    `SWAP4(Q[4], Q[6]);
-    `SWAP4(Q[5], Q[7]);
+    `SWAP4(Q[Offset + 0], Q[Offset + 2]);
+    `SWAP4(Q[Offset + 1], Q[Offset + 3]);
+    `SWAP4(Q[Offset + 4], Q[Offset + 6]);
+    `SWAP4(Q[Offset + 5], Q[Offset + 7]);
 
-    `SWAP8(Q[0], Q[4]);
-    `SWAP8(Q[1], Q[5]);
-    `SWAP8(Q[2], Q[6]);
-    `SWAP8(Q[3], Q[7]);
+    `SWAP8(Q[Offset + 0], Q[Offset + 4]);
+    `SWAP8(Q[Offset + 1], Q[Offset + 5]);
+    `SWAP8(Q[Offset + 2], Q[Offset + 6]);
+    `SWAP8(Q[Offset + 3], Q[Offset + 7]);
 }
 
 static final function int SubWord(int X)
@@ -431,8 +434,7 @@ static final function int AesCtKeySched(
     }
     for (I = 0; I < Nkf; I += 4)
     {
-        // TODO: take in offset.
-        // AesCtOrtho(SKey + (I << 1));
+        AesCtOrtho(SKey, I << 1);
     }
     J = 0;
     for (I = 0; I < Nkf; ++I)
