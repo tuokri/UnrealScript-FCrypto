@@ -2,7 +2,7 @@
         a = (`x);                                   \
         b = (`y);                                   \
         (`x) = (a & `cl) | ((b & `cl) << (`s));     \
-        (`y) = ((a & `ch) >> (`s)) | (b & `ch);     \
+        (`y) = ((a & `ch) >>> (`s)) | (b & `ch);    \
 
 `define SWAP2(x, y)   `SWAPN(0x55555555, 0xAAAAAAAA, 1, `x, `y)
 `define SWAP4(x, y)   `SWAPN(0x33333333, 0xCCCCCCCC, 2, `x, `y)
