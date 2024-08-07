@@ -405,8 +405,7 @@ static final function int AesCtKeySched(
     Tmp = 0;
     for (I = 0; I < Nk; ++I)
     {
-        // TODO: dedicated file for Enc/Dec functions?
-        // Tmp = Dec32LE(Key, I << 2);
+        Tmp = class'FCryptoEncDec'.static.Dec32LE(Key, I << 2);
         SKey[(I << 1)    ] = Tmp;
         SKey[(I << 1) + 1] = Tmp;
     }
@@ -439,7 +438,7 @@ static final function int AesCtKeySched(
     J = 0;
     for (I = 0; I < Nkf; ++I)
     {
-        CompSkey[I] = (SKey[J] & 0x55555555) | (SKey[J + 1] & 0xAAAAAAAA);
+        CompSKey[I] = (SKey[J] & 0x55555555) | (SKey[J + 1] & 0xAAAAAAAA);
         J += 2;
     }
     return NumRounds;
@@ -469,6 +468,221 @@ static final function AesCtSKeyExpand(
         SKey[V + 1] = Y | (Y >>> 1);
         V += 2;
     }
+}
+
+static final function AesCtBitSliceInvSBox(out array<int> Q)
+{
+    /*
+    * AES S-box is:
+    *   S(x) = A(I(x)) ^ 0x63
+    * where I() is inversion in GF(256), and A() is a linear
+    * transform (0 is formally defined to be its own inverse).
+    * Since inversion is an involution, the inverse S-box can be
+    * computed from the S-box as:
+    *   iS(x) = B(S(B(x ^ 0x63)) ^ 0x63)
+    * where B() is the inverse of A(). Indeed, for any y in GF(256):
+    *   iS(S(y)) = B(A(I(B(A(I(y)) ^ 0x63 ^ 0x63))) ^ 0x63 ^ 0x63) = y
+    *
+    * Note: we reuse the implementation of the forward S-box,
+    * instead of duplicating it here, so that total code size is
+    * lower. By merging the B() transforms into the S-box circuit
+    * we could make faster CBC decryption, but CBC decryption is
+    * already quite faster than CBC encryption because we can
+    * process two blocks in parallel.
+    */
+
+    local int Q0;
+    local int Q1;
+    local int Q2;
+    local int Q3;
+    local int Q4;
+    local int Q5;
+    local int Q6;
+    local int Q7;
+
+    Q0 = ~Q[0];
+    Q1 = ~Q[1];
+    Q2 = Q[2];
+    Q3 = Q[3];
+    Q4 = Q[4];
+    Q5 = ~Q[5];
+    Q6 = ~Q[6];
+    Q7 = Q[7];
+    Q[7] = Q1 ^ Q4 ^ Q6;
+    Q[6] = Q0 ^ Q3 ^ Q5;
+    Q[5] = Q7 ^ Q2 ^ Q4;
+    Q[4] = Q6 ^ Q1 ^ Q3;
+    Q[3] = Q5 ^ Q0 ^ Q2;
+    Q[2] = Q4 ^ Q7 ^ Q1;
+    Q[1] = Q3 ^ Q6 ^ Q0;
+    Q[0] = Q2 ^ Q5 ^ Q7;
+
+    AesCtBitSliceSBox(Q);
+
+    Q0 = ~Q[0];
+    Q1 = ~Q[1];
+    Q2 = Q[2];
+    Q3 = Q[3];
+    Q4 = Q[4];
+    Q5 = ~Q[5];
+    Q6 = ~Q[6];
+    Q7 = Q[7];
+    Q[7] = Q1 ^ Q4 ^ Q6;
+    Q[6] = Q0 ^ Q3 ^ Q5;
+    Q[5] = Q7 ^ Q2 ^ Q4;
+    Q[4] = Q6 ^ Q1 ^ Q3;
+    Q[3] = Q5 ^ Q0 ^ Q2;
+    Q[2] = Q4 ^ Q7 ^ Q1;
+    Q[1] = Q3 ^ Q6 ^ Q0;
+    Q[0] = Q2 ^ Q5 ^ Q7;
+}
+
+// TODO: can be made a macro for performance?
+static final function AddRoundKey(
+    out array<int> Q,
+    const out array<int> SK,
+    optional int Offset = 0
+)
+{
+    // local int I;
+
+    // for (I = 0; I < 8; ++I)
+    // {
+    //     Q[I] = Q[I] ^ SK[I];
+    // }
+
+    // TODO: need to benchmark whether a temp var here is better.
+
+    Q[Offset + 0] = Q[Offset + 0] ^ SK[Offset + 0];
+    Q[Offset + 1] = Q[Offset + 1] ^ SK[Offset + 1];
+    Q[Offset + 2] = Q[Offset + 2] ^ SK[Offset + 2];
+    Q[Offset + 3] = Q[Offset + 3] ^ SK[Offset + 3];
+    Q[Offset + 4] = Q[Offset + 4] ^ SK[Offset + 4];
+    Q[Offset + 5] = Q[Offset + 5] ^ SK[Offset + 5];
+    Q[Offset + 6] = Q[Offset + 6] ^ SK[Offset + 6];
+    Q[Offset + 7] = Q[Offset + 7] ^ SK[Offset + 7];
+}
+
+// TODO: can be made a macro for performance?
+static final function InvShiftRows(out array<int> Q)
+{
+    local int X;
+
+    // for (i = 0; i < 8; i ++) unrolled.
+
+    X = Q[0];
+    Q[0] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[1];
+    Q[1] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[2];
+    Q[2] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[3];
+    Q[3] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[4];
+    Q[4] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[5];
+    Q[5] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[6];
+    Q[6] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+    X = Q[7];
+    Q[7] = (X & 0x000000FF)
+        | ((X & 0x00003F00) << 2) | ((X & 0x0000C000) >>> 6)
+        | ((X & 0x000F0000) << 4) | ((X & 0x00F00000) >>> 4)
+        | ((X & 0x03000000) << 6) | ((X & 0xFC000000) >>> 2);
+}
+
+// static final function int RotR16(int X)
+// {
+//     return (X << 16) | (X >>> 16);
+// }
+`define ROTR16(X) (((`X << 16) | (`X >>> 16)))
+
+static final function InvMixColumns(out array<int> Q)
+{
+    local int Q0;
+    local int Q1;
+    local int Q2;
+    local int Q3;
+    local int Q4;
+    local int Q5;
+    local int Q6;
+    local int Q7;
+    local int R0;
+    local int R1;
+    local int R2;
+    local int R3;
+    local int R4;
+    local int R5;
+    local int R6;
+    local int R7;
+
+    Q0 = Q[0];
+    Q1 = Q[1];
+    Q2 = Q[2];
+    Q3 = Q[3];
+    Q4 = Q[4];
+    Q5 = Q[5];
+    Q6 = Q[6];
+    Q7 = Q[7];
+    R0 = (Q0 >> 8) | (Q0 << 24);
+    R1 = (Q1 >> 8) | (Q1 << 24);
+    R2 = (Q2 >> 8) | (Q2 << 24);
+    R3 = (Q3 >> 8) | (Q3 << 24);
+    R4 = (Q4 >> 8) | (Q4 << 24);
+    R5 = (Q5 >> 8) | (Q5 << 24);
+    R6 = (Q6 >> 8) | (Q6 << 24);
+    R7 = (Q7 >> 8) | (Q7 << 24);
+
+    Q[0] = Q5 ^ Q6 ^ Q7 ^ R0 ^ R5 ^ R7 ^ `ROTR16(Q0 ^ Q5 ^ Q6 ^ R0 ^ R5);
+    Q[1] = Q0 ^ Q5 ^ R0 ^ R1 ^ R5 ^ R6 ^ R7 ^ `ROTR16(Q1 ^ Q5 ^ Q7 ^ R1 ^ R5 ^ R6);
+    Q[2] = Q0 ^ Q1 ^ Q6 ^ R1 ^ R2 ^ R6 ^ R7 ^ `ROTR16(Q0 ^ Q2 ^ Q6 ^ R2 ^ R6 ^ R7);
+    Q[3] = Q0 ^ Q1 ^ Q2 ^ Q5 ^ Q6 ^ R0 ^ R2 ^ R3 ^ R5 ^ `ROTR16(Q0 ^ Q1 ^ Q3 ^ Q5 ^ Q6 ^ Q7 ^ R0 ^ R3 ^ R5 ^ R7);
+    Q[4] = Q1 ^ Q2 ^ Q3 ^ Q5 ^ R1 ^ R3 ^ R4 ^ R5 ^ R6 ^ R7 ^ `ROTR16(Q1 ^ Q2 ^ Q4 ^ Q5 ^ Q7 ^ R1 ^ R4 ^ R5 ^ R6);
+    Q[5] = Q2 ^ Q3 ^ Q4 ^ Q6 ^ R2 ^ R4 ^ R5 ^ R6 ^ R7 ^ `ROTR16(Q2 ^ Q3 ^ Q5 ^ Q6 ^ R2 ^ R5 ^ R6 ^ R7);
+    Q[6] = Q3 ^ Q4 ^ Q5 ^ Q7 ^ R3 ^ R5 ^ R6 ^ R7 ^ `ROTR16(Q3 ^ Q4 ^ Q6 ^ Q7 ^ R3 ^ R6 ^ R7);
+    Q[7] = Q4 ^ Q5 ^ Q6 ^ R4 ^ R6 ^ R7 ^ `ROTR16(Q4 ^ Q5 ^ Q7 ^ R4 ^ R7);
+}
+
+static final function AesCtBitSliceDecrypt(
+    int NumRounds,
+    const out array<int> SKey,
+    out array<int> Q
+)
+{
+    local int U;
+
+    AddRoundKey(Q, SKey, NumRounds << 3);
+    for (U = NumRounds - 1; U > 0; --U)
+    {
+        InvShiftRows(Q);
+        AesCtBitSliceInvSBox(Q);
+        AddRoundKey(Q, SKey, U << 3);
+        InvMixColumns(Q);
+    }
+    InvShiftRows(Q);
+    AesCtBitSliceInvSBox(Q);
+    AddRoundKey(Q, SKey);
 }
 
 DefaultProperties
