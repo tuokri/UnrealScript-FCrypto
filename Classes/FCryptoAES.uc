@@ -685,6 +685,121 @@ static final function AesCtBitSliceDecrypt(
     AddRoundKey(Q, SKey);
 }
 
+static final function ShiftRows(out array<int> Q)
+{
+    local int X;
+
+    // for (i = 0; i < 8; i ++) unrolled.
+
+    X = Q[0];
+    Q[0] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[1];
+    Q[1] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[2];
+    Q[2] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[3];
+    Q[3] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[4];
+    Q[4] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[5];
+    Q[5] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[6];
+    Q[6] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+    X = Q[7];
+    Q[7] = (X & 0x000000FF)
+        | ((X & 0x0000FC00) >>> 2) | ((X & 0x00000300) << 6)
+        | ((X & 0x00F00000) >>> 4) | ((X & 0x000F0000) << 4)
+        | ((X & 0xC0000000) >>> 6) | ((X & 0x3F000000) << 2);
+}
+
+static final function MixColumns(out array<int> Q)
+{
+    local int Q0;
+    local int Q1;
+    local int Q2;
+    local int Q3;
+    local int Q4;
+    local int Q5;
+    local int Q6;
+    local int Q7;
+    local int R0;
+    local int R1;
+    local int R2;
+    local int R3;
+    local int R4;
+    local int R5;
+    local int R6;
+    local int R7;
+
+    Q0 = Q[0];
+    Q1 = Q[1];
+    Q2 = Q[2];
+    Q3 = Q[3];
+    Q4 = Q[4];
+    Q5 = Q[5];
+    Q6 = Q[6];
+    Q7 = Q[7];
+    R0 = (Q0 >> 8) | (Q0 << 24);
+    R1 = (Q1 >> 8) | (Q1 << 24);
+    R2 = (Q2 >> 8) | (Q2 << 24);
+    R3 = (Q3 >> 8) | (Q3 << 24);
+    R4 = (Q4 >> 8) | (Q4 << 24);
+    R5 = (Q5 >> 8) | (Q5 << 24);
+    R6 = (Q6 >> 8) | (Q6 << 24);
+    R7 = (Q7 >> 8) | (Q7 << 24);
+
+    Q[0] = Q7 ^ R7 ^ R0 ^ `ROTR16(Q0 ^ R0);
+    Q[1] = Q0 ^ R0 ^ Q7 ^ R7 ^ R1 ^ `ROTR16(Q1 ^ R1);
+    Q[2] = Q1 ^ R1 ^ R2 ^ `ROTR16(Q2 ^ R2);
+    Q[3] = Q2 ^ R2 ^ Q7 ^ R7 ^ R3 ^ `ROTR16(Q3 ^ R3);
+    Q[4] = Q3 ^ R3 ^ Q7 ^ R7 ^ R4 ^ `ROTR16(Q4 ^ R4);
+    Q[5] = Q4 ^ R4 ^ R5 ^ `ROTR16(Q5 ^ R5);
+    Q[6] = Q5 ^ R5 ^ R6 ^ `ROTR16(Q6 ^ R6);
+    Q[7] = Q6 ^ R6 ^ R7 ^ `ROTR16(Q7 ^ R7);
+}
+
+static final function AesCtBitSliceEncrypt(
+    int NumRounds,
+    const out array<int> SKey,
+    out array<int> Q
+)
+{
+    local int U;
+
+    AddRoundKey(Q, SKey);
+    for (U = 1; U < NumRounds; ++U)
+    {
+        AesCtBitSliceSBox(Q);
+        ShiftRows(Q);
+        MixColumns(Q);
+        AddRoundKey(Q, SKey, U << 3);
+    }
+    AesCtBitSliceSBox(Q);
+    ShiftRows(Q);
+    AddRoundKey(Q, SKey, NumRounds << 3);
+}
+
 DefaultProperties
 {
     //    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36
