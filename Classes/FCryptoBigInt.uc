@@ -57,71 +57,6 @@ class FCryptoBigInt extends Object
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
 
-`if(`isdefined(FCDEBUG))
-    `define fcprivate
-`else
-    `define fcprivate private
-`endif
-
-// TODO: OOP-style interface. Should be in a separate file?
-
-// Header word + value words. Max 16 bits used per word.
-var private array<int> Words;
-
-// 0 for positive, 1 for negative.
-var private int Sign;
-
-final function Init_IntArray(
-    const out array<int> InitWords,
-    optional int InitSign = 0
-)
-{
-    Words = InitWords;
-    Sign = InitSign;
-}
-
-final function Init_ByteArray(
-    const out array<byte> InitBytes,
-    optional int InitSign = 0
-)
-{
-    Decode(Words, InitBytes, InitBytes.Length);
-    Sign = InitSign;
-}
-
-final function Init_HexString(
-    coerce string HexString,
-    optional int InitSign = 0
-)
-{
-    local array<byte> Bytes;
-    BytesFromHex(Bytes, HexString);
-    Init_ByteArray(Bytes, InitSign);
-}
-
-final function string ToString()
-{
-    return static.WordsToString(Words);
-}
-
-// EXPERIMENTAL! For now assumes input Ctl is always 1.
-static final operator(20) FCryptoBigInt + (FCryptoBigInt A, FCryptoBigInt B)
-{
-    // TODO: need to check announced bit lengths.
-
-    A.Sign = Add(A.Words, B.Words, 1);
-    return A;
-}
-
-// EXPERIMENTAL! For now assumes input Ctl is always 1.
-static final operator(20) FCryptoBigInt - (FCryptoBigInt A, FCryptoBigInt B)
-{
-    // TODO: need to check announced bit lengths.
-
-    A.Sign = Sub(A.Words, B.Words, 1);
-    return A;
-}
-
 /*
  * Negate a boolean.
  */
@@ -133,7 +68,7 @@ static final function int NOT(int Ctl)
 /*
  * Multiplexer: returns X if ctl == 1, y if ctl == 0.
  */
-`fcprivate static final function int MUX(int Ctl, int X, Int Y)
+static final function int MUX(int Ctl, int X, Int Y)
 {
     return Y ^ ((-Ctl) & (X ^ Y));
 }
@@ -141,7 +76,7 @@ static final function int NOT(int Ctl)
 /*
  * Equality check: returns 1 if X == y, 0 otherwise.
  */
-`fcprivate static final function int EQ(int X, int Y)
+static final function int EQ(int X, int Y)
 {
     local int Q;
 
@@ -152,7 +87,7 @@ static final function int NOT(int Ctl)
 /*
  * Inequality check: returns 1 if x != y, 0 otherwise.
  */
-`fcprivate static final function int NEQ(int X, int Y)
+static final function int NEQ(int X, int Y)
 {
     local int Q;
 
@@ -160,7 +95,7 @@ static final function int NOT(int Ctl)
     return (Q | (-Q)) >>> 31;
 }
 
-`fcprivate static final function int GT(int X, int Y)
+static final function int GT(int X, int Y)
 {
     /*
      * If both x < 2^31 and x < 2^31, then y-x will have its high
@@ -184,7 +119,7 @@ static final function int NOT(int Ctl)
  * Compute the bit length of a 32-bit integer. Returned value is between 0
  * and 32 (inclusive).
  */
-`fcprivate static final function int BIT_LENGTH(int X)
+static final function int BIT_LENGTH(int X)
 {
     local int K;
     local int C;
@@ -202,7 +137,7 @@ static final function int NOT(int Ctl)
  * General comparison: returned value is -1, 0 or 1, depending on
  * whether x is lower than, equal to, or greater than y.
  */
-`fcprivate static final function int CMP(int X, int Y)
+static final function int CMP(int X, int Y)
 {
     return GT(X, Y) | (-GT(Y, X));
 }
@@ -210,7 +145,7 @@ static final function int NOT(int Ctl)
 /*
  * Returns 1 if x == 0, 0 otherwise. Take care that the operand is signed.
  */
-`fcprivate static final function int EQ0(int X)
+static final function int EQ0(int X)
 {
     return (~(X | -X)) >>> 31;
 }
