@@ -59,12 +59,8 @@ struct CurveParams
 
 var const array<CurveParams> _PP;
 
-static final function CurveParams IdToCurve(FCryptoEllipticCurve Curve)
-{
-    return _PP[Curve - FCEC_Secp256r1];
-};
-
-`define I15_LEN   ((`BR_MAX_EC_SIZE + 29) / 15)
+// ((`BR_MAX_EC_SIZE + 29) / 15)
+`define I15_LEN 37
 
 // Montgomery representation. Workaround dummy container type
 // for Jacobian struct due to UScript not having nested arrays.
@@ -83,6 +79,11 @@ struct Jacobian
 {
     // uint16_t c[3][I15_LEN];
     var _Monty C[3];
+};
+
+static final function CurveParams IdToCurve(EFCEllipticCurve Curve)
+{
+    return default._PP[Curve - FCEC_Secp256r1];
 };
 
 /*
@@ -142,6 +143,58 @@ struct Jacobian
 `define T8     3
 `define T9     4
 `define T10    5
+
+static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
+{
+    local array<byte> TODO;
+    return TODO;
+}
+
+static function array<byte> Order(EFCEllipticCurve Curve, out int Len)
+{
+    local array<byte> TODO;
+    return TODO;
+}
+
+static function int XOff(EFCEllipticCurve Curve, out int Len)
+{
+    return -1;
+}
+
+static function int Mul(
+    out array<byte> G,
+    int GLen,
+    const out array<byte> Kb,
+    int KbLen,
+    EFCEllipticCurve Curve
+)
+{
+    return -1;
+}
+
+static function int MulGen(
+    out array<byte> R,
+    const out array<byte> X,
+    int XLen,
+    EFCEllipticCurve Curve
+)
+{
+    return -1;
+}
+
+static function int MulAdd(
+    out array<byte> A,
+    const out array<byte> B,
+    int Len,
+    const out array<byte> X,
+    int XLen,
+    const out array<byte> Y,
+    int YLen,
+    EFCEllipticCurve Curve
+)
+{
+    return -1;
+}
 
 DefaultProperties
 {
@@ -209,7 +262,8 @@ DefaultProperties
         0x1618, 0x27D7, 0x0465
     )}
 
-    _PP(0)=(P=P256_P, B=P256_B, R2=P256R2, P0i=0x001, PointLen=65)
-    _PP(1)=(P=P384_P, B=P384_B, R2=P384R2, P0i=0x001, PointLen=97)
-    _PP(2)=(P=P521_P, B=P521_B, R2=P521R2, P0i=0x001, PointLen=133)
+    // TODO: fix array assignments.
+    _PP(0)=(P=default.P256_P, B=default.P256_B, R2=default.P256_R2, P0i=0x001, PointLen=65)
+    _PP(1)=(P=default.P384_P, B=default.P384_B, R2=default.P384_R2, P0i=0x001, PointLen=97)
+    _PP(2)=(P=default.P521_P, B=default.P521_B, R2=default.P521_R2, P0i=0x001, PointLen=133)
 }
