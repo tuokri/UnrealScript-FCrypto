@@ -113,6 +113,8 @@ var(FCryptoTests) int CurrentTestDelegateIndex;
 
 var private bool bRandPrimesRequested;
 
+var const array<byte> RepeatedBinaryRandoms;
+
 /*
  * AES known-answer tests. Order: key, plaintext, ciphertext.
  */
@@ -618,6 +620,7 @@ private final simulated function RandomBigInt(
     local array<int> BigIntN;
     local int BICLen;
     local int BINLen;
+    local int RandomIndex;
     // local string BigIntNString;
 
     class'FCryptoBigInt'.static.Decode(BigIntN, N, N.Length);
@@ -654,11 +657,27 @@ private final simulated function RandomBigInt(
         return;
     }
 
+    RandomIndex = 0;
     Dst.Length = 0;
     for (I = 0; I <= Rounds; ++I)
     {
         Ctl = 0;
-        Dst[I] = Rand(256);
+
+        // NOTE: this is attempting to somewhat imitate GMP mpz_rrandomb behavior
+        //       to generate an integer with long strings of zeros and ones in the
+        //       binary representation.
+        // TODO: better algorithm.
+        if (FRand() >= 0.33)
+        {
+            // Pick one of known numbers with a binary representation that has a lot
+            // of consecutive ones or zeros.
+            Dst[I] = RepeatedBinaryRandoms[RandomIndex];
+            RandomIndex = (RandomIndex + 1) % RepeatedBinaryRandoms.Length;
+        }
+        else
+        {
+            Dst[I] = Rand(256);
+        }
 
         // Convert Dst to a BigInt for checking whether it's
         // less or greater than BigIntN.
@@ -1374,6 +1393,27 @@ DefaultProperties
 
     Begin Object Class=FCryptoUtils Name=Utils
     End Object
+
+    RepeatedBinaryRandoms={(
+        255,    // 11111111
+        255,    // 11111111
+        255,    // 11111111
+        245,    // 11111110
+        0,      // 00000000
+        64,     // 10000000
+        0,      // 00000000
+        0,      // 00000000
+        0,      // 00000000
+        0,      // 00000000
+        65,     // 10000010
+        0,      // 00000000
+        66,     // 10000100
+        0,      // 00000000
+        255,    // 11111111
+        255,    // 11111111
+        255,    // 11111111
+        255,    // 11111111
+    )}
 
     Bytes_0(0)=0
 
