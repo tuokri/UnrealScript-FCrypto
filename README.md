@@ -130,3 +130,6 @@ copying them.
 Initial testing suggests `const out` does provide a minor speedup when testing
 with large number of benchmark iterations. The plain copy version is faster when
 doing very few iterations.
+
+When the amount of data is large e.g., a struct containing arrays, the `const out`
+version clearly beats the copy version.
