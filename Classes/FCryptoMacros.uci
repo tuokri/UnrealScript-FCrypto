@@ -1,6 +1,9 @@
 // General development debugging.
 `define FCDEBUG 1
 
+// Define benchmarking functions, data and run the test suite.
+`define FCBENCHMARK 1
+
 // Monty specific extra debugging.
 // `define FCDEBUG_MONTY 1
 

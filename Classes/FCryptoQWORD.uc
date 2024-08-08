@@ -34,7 +34,18 @@ struct FCQWORD
 };
 
 // Return A > B.
-final static function bool IsGt(FCQWORD A, FCQWORD B)
+final static function bool IsGt(const out FCQWORD A, const out FCQWORD B)
+{
+    if (IsGt_AsUInt32(A.A, B.A))
+    {
+        return True;
+    }
+
+    return IsGt_AsUInt32(A.B, B.B);
+}
+
+// For benchmarking.
+final static function bool IsGt_NonConst(FCQWORD A, FCQWORD B)
 {
     if (IsGt_AsUInt32(A.A, B.A))
     {

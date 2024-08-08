@@ -548,6 +548,30 @@ static final function int BitLength(
     return (Twk << 4) + BIT_LENGTH(Tw);
 }
 
+static final function int BitLength_NonConst(
+    array<int> X,
+    int XLen
+)
+{
+    local int Tw;
+    local int Twk;
+    local int W;
+    local int C;
+
+    Tw = 0;
+    Twk = 0;
+
+    while (XLen-- > 0)
+    {
+        C = EQ(Tw, 0);
+        W = X[XLen];
+        Tw = MUX(C, W, Tw);
+        Twk = MUX(C, XLen, Twk);
+    }
+
+    return (Twk << 4) + BIT_LENGTH(Tw);
+}
+
 /*
  * Decode an integer from its big-endian unsigned representation. The
  * integer MUST be lower than m[]; the announced bit length written in
@@ -723,6 +747,46 @@ static final function Decode(
     XArr = X;
     XArr.Remove(0, 1);
     X[0] = BitLength(XArr, V - 1);
+}
+
+static final function Decode_NonConst(
+    out array<int> X,
+    array<byte> Src,
+    int Len
+)
+{
+    local int V;
+    local int Acc;
+    local int AccLen;
+    local int B;
+    local array<int> XArr;
+
+    V = 1;
+    Acc = 0;
+    AccLen = 0;
+    while (Len-- > 0)
+    {
+        B = Src[Len];
+        // Acc = Acc | ((B << AccLen) & 0xFFFF); // @ALIGN-32-16.
+        Acc = Acc | (B << AccLen);
+        AccLen += 8;
+        if (AccLen >= 15)
+        {
+            X[V++] = Acc & 0x7FFF;
+            AccLen -= 15;
+            Acc = Acc >>> 15;
+        }
+    }
+    if (AccLen != 0)
+    {
+        X[V++] = Acc & 0xFFFF; // @ALIGN-32-16.
+    }
+
+    // X[0] = BitLength(X + 1, V - 1);
+    // TODO: is there a faster way of doing this in UScript?
+    XArr = X;
+    XArr.Remove(0, 1);
+    X[0] = BitLength_NonConst(XArr, V - 1);
 }
 
 /*

@@ -1060,11 +1060,23 @@ private final simulated function int TestMath()
     local int Remainder;
     local int HardCodedMontyFail;
     local int MontyDecodeResult;
+    local int BenchmarkRound;
     local string BigIntString;
 
     local int Dummy;
     local FCQWORD QW;
+    local FCQWORD QW1;
+    local FCQWORD QW2;
+    local FCQWORD QW3;
+    local FCQWORD QW4;
+    local FCQWORD QW5;
+    local FCQWORD QW6;
+    local FCQWORD QW7;
+    local FCQWORD QW8;
+    local FCQWORD QW9;
     local bool bQWCarry;
+    local float QWClock;
+    local int QWIdx;
 
     // TODO: Design for FCQWORD arithmetic.
     Dummy = 0xFFFFFFFF;
@@ -1109,6 +1121,70 @@ private final simulated function int TestMath()
     `fclog("0x7FFFFFFF >  0xFFFFFFFF :" @ IsGt(0x7FFFFFFF, 0xFFFFFFFF));
     `fclog("0xFFFFFFFF >  0x7FFFFFFF :" @ IsGt(0xFFFFFFFF, 0x7FFFFFFF));
 
+    QW1.A = 0x00000000;
+    QW1.B = 0xFFFFFFFF;
+    QW2.A = 0xFFFFFFFF;
+    QW2.B = 0xFFFFFFFF;
+    QW3.A = 0x00000000;
+    QW3.B = 0x00000000;
+    QW4.A = 0x00000000;
+    QW4.B = 0xFFFFFFFF;
+    QW5.A = 0x00000002;
+    QW5.B = 0xFFFFFFFF;
+    QW6.A = 0x00000000;
+    QW6.B = 0x7FFAFFFF;
+    QW7.A = 0x00000000;
+    QW7.B = 0x00000002;
+    QW8.A = 0x00000000;
+    QW8.B = 0x00000001;
+    QW9.A = 0x7FFFFFFF;
+    QW9.B = 0x7FFFFFFF;
+
+    Clock(QWClock);
+    for (QWIdx = 0; QWIdx < 1024; ++QWIdx)
+    {
+        class'FCryptoQWORD'.static.IsGt(QW1, QW1);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW2);
+        class'FCryptoQWORD'.static.IsGt(QW2, QW3);
+        class'FCryptoQWORD'.static.IsGt(QW3, QW4);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW5, QW6);
+        class'FCryptoQWORD'.static.IsGt(QW7, QW8);
+        class'FCryptoQWORD'.static.IsGt(QW8, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW9, QW1);
+        class'FCryptoQWORD'.static.IsGt(QW2, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW7, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW4);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW8);
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (reference)=" $ QWClock);
+
+    QWClock = 0;
+    Clock(QWClock);
+    for (QWIdx = 0; QWIdx < 1024; ++QWIdx)
+    {
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW1);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW2);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW3);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW3, QW4);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW5, QW6);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW8);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW8, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW9, QW1);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW4);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW8);
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (copy)=" $ QWClock);
+
     // BearSSL assumes all operands caller-allocated.
     // We'll do some bare minimum allocations here to avoid issues.
     // TODO: does UScript dynamic array allocation break CT guarantees?
@@ -1152,6 +1228,38 @@ private final simulated function int TestMath()
         "00001EBD 00005020 (1, 13)"
     );
     X.Length = 0;
+
+    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // TODO: dedicated benchmarking test suite.
+    QWClock = 0;
+    Clock(QWClock);
+    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
+    {
+    class'FCryptoBigInt'.static.Decode(
+            X,
+            Bytes_683384335291162482276352519,
+            Bytes_683384335291162482276352519.Length
+        );
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (decode1)=" $ QWClock);
+
+    QWClock = 0;
+    Clock(QWClock);
+    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
+    {
+    class'FCryptoBigInt'.static.Decode_NonConst(
+            X,
+            Bytes_683384335291162482276352519,
+            Bytes_683384335291162482276352519.Length
+        );
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (decode2)=" $ QWClock);
+
+    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
 
     `fcdebug("check decode Bytes_683384335291162482276352519");
     class'FCryptoBigInt'.static.Decode(
