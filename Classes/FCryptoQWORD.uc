@@ -26,7 +26,7 @@ class FCryptoQWORD extends Object
     abstract
     notplaceable;
 
-// 64-bit integer simulated as two 32-bit integers.
+// 64-bit unsigned integer simulated as two 32-bit signed integers.
 struct FCQWORD
 {
     var int A; // High.
