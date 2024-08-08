@@ -212,7 +212,7 @@ DefaultProperties
     P521_R2={(`P521_R2_VALUES)}
     P521_B={(`P521_B_VALUES)}
 
-    _PP(0)={(P=(`P256_P_VALUES), B=(`P256_R2_VALUES), R2=(`P256_B_VALUES), P0i=0x001, PointLen=65)}
+    _PP(0)={(P=(`P256_P_VALUES), B=(`P256_B_VALUES), R2=(`P256_R2_VALUES), P0i=0x001, PointLen=65)}
     _PP(1)={(P=(`P384_P_VALUES), B=(`P384_B_VALUES), R2=(`P384_R2_VALUES), P0i=0x001, PointLen=97)}
     _PP(2)={(P=(`P521_P_VALUES), B=(`P521_B_VALUES), R2=(`P521_R2_VALUES), P0i=0x001, PointLen=133)}
 }
