@@ -22,6 +22,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+// Defines the common interface for all elliptic curve implementations.
 interface FCryptoEllipticCurve;
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
