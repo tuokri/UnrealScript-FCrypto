@@ -30,5 +30,3 @@
 
 const SIZEOF_UINT16_T = 2;
 const WORD_SIZE = 15;
-
-`define BR_MAX_EC_SIZE 528
