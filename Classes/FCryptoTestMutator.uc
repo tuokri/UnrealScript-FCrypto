@@ -990,6 +990,43 @@ private final simulated function int TestOperations()
 `endif
 }
 
+// TODO: prototyping.
+final static function bool IsEq(int A, int B)
+{
+    local int C;
+
+    C = A ^ B;
+    C = C | (C >>> 16);
+    C = C | (C >>> 8);
+    C = C | (C >>> 4);
+    C = C | (C >>> 2);
+    C = C | (C >>> 1);
+    return bool(-(C & 1));
+}
+
+// TODO: prototyping.
+final static function bool IsGt(int A, int B)
+{
+    local int Ltb;
+    local int Gtb;
+
+    // These are all the bits in a that are less than their corresponding bits in b.
+    Ltb = ~A & B;
+
+    // These are all the bits in a that are greater than their corresponding bits in b.
+    Gtb = A & ~B;
+
+    Ltb = Ltb | (Ltb >>>  1);
+    Ltb = Ltb | (Ltb >>>  2);
+    Ltb = Ltb | (Ltb >>>  4);
+    Ltb = Ltb | (Ltb >>>  8);
+    Ltb = Ltb | (Ltb >>> 16);
+
+    // Nonzero if a > b
+    // Zero if a <= b
+    return bool(Gtb & ~Ltb);
+}
+
 // Mirrors most of the tests from BearSSL's test_match.c,
 // with some UnrealScript-specific additions.
 private final simulated function int TestMath()
@@ -1026,14 +1063,51 @@ private final simulated function int TestMath()
     local string BigIntString;
 
     local int Dummy;
+    local FCQWORD QW;
+    local bool bQWCarry;
 
-    // TODO: Design for QWORD arithmetic.
+    // TODO: Design for FCQWORD arithmetic.
     Dummy = 0xFFFFFFFF;
     `fclog("Dummy=" $ Dummy);
     `fclog("Dummy=" $ ToHex(Dummy));
     Dummy += 0xF;
     `fclog("Dummy=" $ Dummy);
     `fclog("Dummy=" $ ToHex(Dummy));
+
+    QW.A = 0x00000000;
+    QW.B = 0xFFFFFFFF;
+    QW.B += 0xF;
+    `fclog("QW.B=" $ QW.B);
+    `fclog("QW.B=" $ ToHex(QW.B));
+    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
+    `fclog("bQWCarry=" $ bQWCarry);
+
+    QW.B = MaxInt;
+    QW.B += 0xF;
+    `fclog("QW.B=" $ QW.B);
+    `fclog("QW.B=" $ ToHex(QW.B));
+    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
+    `fclog("bQWCarry=" $ bQWCarry);
+
+    `fclog("0x00000000 == 0xFFFFFFFF :" @ IsEq(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF == 0xFFFFFFFF :" @ IsEq(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 == 0x00000000 :" @ IsEq(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF == 0x00000000 :" @ IsEq(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 == 0x7FFFFFFF :" @ IsEq(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 == 0x00000002 :" @ IsEq(0x00000001, 0x00000002));
+    `fclog("0x00000002 == 0x00000001 :" @ IsEq(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF == 0xFFFFFFFF :" @ IsEq(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF == 0x7FFFFFFF :" @ IsEq(0xFFFFFFFF, 0x7FFFFFFF));
+
+    `fclog("0x00000000 >  0xFFFFFFFF :" @ IsGt(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >  0xFFFFFFFF :" @ IsGt(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 >  0x00000000 :" @ IsGt(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF >  0x00000000 :" @ IsGt(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 >  0x7FFFFFFF :" @ IsGt(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 >  0x00000002 :" @ IsGt(0x00000001, 0x00000002));
+    `fclog("0x00000002 >  0x00000001 :" @ IsGt(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF >  0xFFFFFFFF :" @ IsGt(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >  0x7FFFFFFF :" @ IsGt(0xFFFFFFFF, 0x7FFFFFFF));
 
     // BearSSL assumes all operands caller-allocated.
     // We'll do some bare minimum allocations here to avoid issues.

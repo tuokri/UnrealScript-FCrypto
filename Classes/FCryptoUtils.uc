@@ -88,3 +88,26 @@ static final function bool FromHex(string HexString, out int Result)
     Result = Res;
     return True;
 }
+
+// TODO: just use BytesFromHex from FCryptoBigInt? And move it here?
+/*
+ * Decode a hexadecimal string. Returned value is the number of decoded
+ * bytes.
+ */
+// static final function int HexToBin(out string Dst, string Src)
+// {
+//     local int Num;
+//     local int Acc;
+//     local int Z;
+
+//     Num = 0;
+//     Z = 0;
+//     Acc = 0;
+
+//     while (False)
+//     {
+
+//     }
+
+//     return Num;
+// }
