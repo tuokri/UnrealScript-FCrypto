@@ -1371,7 +1371,6 @@ DefaultProperties
     // TestDelegatesToRun[3]=(TestDelegate=TestCrypto,TestName='TestCrypto')
 
     TickGroup=TG_DuringAsyncWork
-    TickFrequency=0
 
     Begin Object Class=FCryptoUtils Name=Utils
     End Object
