@@ -1025,6 +1025,16 @@ private final simulated function int TestMath()
     local int MontyDecodeResult;
     local string BigIntString;
 
+    local int Dummy;
+
+    // TODO: Design for QWORD arithmetic.
+    Dummy = 0xFFFFFFFF;
+    `fclog("Dummy=" $ Dummy);
+    `fclog("Dummy=" $ ToHex(Dummy));
+    Dummy += 0xF;
+    `fclog("Dummy=" $ Dummy);
+    `fclog("Dummy=" $ ToHex(Dummy));
+
     // BearSSL assumes all operands caller-allocated.
     // We'll do some bare minimum allocations here to avoid issues.
     // TODO: does UScript dynamic array allocation break CT guarantees?
