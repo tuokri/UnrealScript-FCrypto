@@ -1,3 +1,5 @@
+`define BR_MAX_EC_SIZE  528
+
 `define CH(X, Y, Z)     ((((`Y) ^ (`Z)) & (`X)) ^ (`Z))
 `define MAJ(X, Y, Z)    (((`Y) & (`Z)) | (((`Y) | (`Z)) & (`X)))
 
