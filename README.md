@@ -107,6 +107,8 @@ for non-critical data.
 
 #### Development TODOs
 
+##### Release tooling
+
 For actual releases we'll want a versioned script package.
 Write a release generation script that copies only the needed
 script files into a versioned directory and compiles the release.
@@ -118,3 +120,13 @@ script files into a versioned directory and compiles the release.
 This allows us to release new versions without causing compatibility
 issues with older versions while also discarding development and testing
 only files from the final release.
+
+##### Benchmarking suite
+
+Benchmark our current `const out` optimizations (assumed to be a reference)
+for passing in arrays (dynamic & static) and structs into functions vs. just
+copying them.
+
+Initial testing suggests `const out` does provide a minor speedup when testing
+with large number of benchmark iterations. The plain copy version is faster when
+doing very few iterations.
