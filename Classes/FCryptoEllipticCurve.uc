@@ -51,15 +51,19 @@ enum EFCEllipticCurve
     FCEC_Secp224k1,             // Not used.
     FCEC_Secp224r1,             // Not used.
     FCEC_Secp256k1,             // Not used.
-    FCEC_Secp256r1,             // TODO: Not used?
-    FCEC_Secp384r1,             // TODO: Not used?
-    FCEC_Secp521r1,             // TODO: Not used?
+    FCEC_Secp256r1,             // TODO: Implement these.
+    FCEC_Secp384r1,             // TODO: Implement these.
+    FCEC_Secp521r1,             // TODO: Implement these.
     FCEC_BrainpoolP256r1,       // Not used.
     FCEC_BrainpoolP384r1,       // Not used.
     FCEC_BrainpoolP512r1,       // Not used.
     FCEC_Curve25519,
     FCEC_Curve448,              // Not used.
 };
+
+// TODO: consider these APIs since they are mostly copied from C, which
+// does not have dynamic dispatch. There may be a nicer way of doing them
+// with UnrealScript features.
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len);
 
