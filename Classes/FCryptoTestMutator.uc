@@ -85,6 +85,7 @@ struct PrimeWrapper
 };
 
 // Pre-generated "random" primes with GMP (see BearSSL test_math.c rand_prime()).
+// Data generated with DevUtils/primes.py.
 var(FCryptoTests) editconst const array<PrimeWrapper> Primes;
 // Current index to `Primes` array.
 var(FCryptoTests) editconst int PrimeIndex;
