@@ -80,18 +80,6 @@ final static function bool IsGt_AsUInt32(int A, int B)
 
 final static function bool IsLt_AsUInt32(int A, int B)
 {
-    // This is actually "less-than-or-equal"?
-    // local int Msb;
-
-    // Msb = A ^ B;
-    // Msb = Msb | (Msb >>>  1);
-    // Msb = Msb | (Msb >>>  2);
-    // Msb = Msb | (Msb >>>  4);
-    // Msb = Msb | (Msb >>>  8);
-    // Msb = Msb | (Msb >>> 16);
-    // Msb = Msb - (Msb >>>  1);
-    // return !bool((B & Msb) ^ Msb);
-
     local int Ltb;
     local int Gtb;
 
@@ -110,4 +98,32 @@ final static function bool IsLt_AsUInt32(int A, int B)
     // A >  B --> non-zero. // TODO: does this work?
     // A <= B --> zero.     // TODO: does this work?
     return bool(Ltb & ~Gtb);
+}
+
+final static function bool IsGte_AsUInt32(int A, int B)
+{
+    local int Msb;
+
+    Msb = A ^ B;
+    Msb = Msb | (Msb >>>  1);
+    Msb = Msb | (Msb >>>  2);
+    Msb = Msb | (Msb >>>  4);
+    Msb = Msb | (Msb >>>  8);
+    Msb = Msb | (Msb >>> 16);
+    Msb = Msb - (Msb >>>  1);
+    return !bool((A & Msb) ^ Msb);
+}
+
+final static function bool IsLte_AsUInt32(int A, int B)
+{
+    local int Msb;
+
+    Msb = A ^ B;
+    Msb = Msb | (Msb >>>  1);
+    Msb = Msb | (Msb >>>  2);
+    Msb = Msb | (Msb >>>  4);
+    Msb = Msb | (Msb >>>  8);
+    Msb = Msb | (Msb >>> 16);
+    Msb = Msb - (Msb >>>  1);
+    return !bool((B & Msb) ^ Msb);
 }
