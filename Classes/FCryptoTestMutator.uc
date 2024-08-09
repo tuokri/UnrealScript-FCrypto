@@ -1384,6 +1384,8 @@ private final simulated function int TestAesCt()
     return 0;
 }
 
+// TODO: refactor and clean up this.
+//       - move FCQWORD tests to dedicated suite
 private final simulated function int TestSpeed()
 {
     local int Dummy;
@@ -1455,6 +1457,26 @@ private final simulated function int TestSpeed()
     `fclog("0x00000002 <  0x00000001 :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000002, 0x00000001));
     `fclog("0x7FFFFFFF <  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x7FFFFFFF, 0xFFFFFFFF));
     `fclog("0xFFFFFFFF <  0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0xFFFFFFFF, 0x7FFFFFFF));
+
+    `fclog("0x00000000 >= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 >= 0x00000000 :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF >= 0x00000000 :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 >= 0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 >= 0x00000002 :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x00000001, 0x00000002));
+    `fclog("0x00000002 >= 0x00000001 :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF >= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >= 0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsGte_AsUInt32(0xFFFFFFFF, 0x7FFFFFFF));
+
+    `fclog("0x00000000 <= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF <= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 <= 0x00000000 :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF <= 0x00000000 :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 <= 0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 <= 0x00000002 :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x00000001, 0x00000002));
+    `fclog("0x00000002 <= 0x00000001 :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF <= 0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF <= 0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsLte_AsUInt32(0xFFFFFFFF, 0x7FFFFFFF));
 
     QW1.A = 0x00000000;
     QW1.B = 0xFFFFFFFF;
