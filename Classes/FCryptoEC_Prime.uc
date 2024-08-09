@@ -82,11 +82,6 @@ struct Jacobian
     var _Monty C[3];
 };
 
-static final function CurveParams IdToCurve(EFCEllipticCurve Curve)
-{
-    return default._PP[Curve - FCEC_Secp256r1];
-};
-
 /*
  * We use a custom interpreter that uses a dozen registers, and
  * only six operations:
@@ -144,6 +139,163 @@ static final function CurveParams IdToCurve(EFCEllipticCurve Curve)
 `define T8     3
 `define T9     4
 `define T10    5
+
+/*
+ * Doubling formulas are:
+ *
+ *   s = 4*x*y^2
+ *   m = 3*(x + z^2)*(x - z^2)
+ *   x' = m^2 - 2*s
+ *   y' = m*(s - x') - 8*y^4
+ *   z' = 2*y*z
+ *
+ * If y = 0 (P has order 2) then this yields infinity (z' = 0), as it
+ * should. This case should not happen anyway, because our curves have
+ * prime order, and thus do not contain any point of order 2.
+ *
+ * If P is infinity (z = 0), then again the formulas yield infinity,
+ * which is correct. Thus, this code works for all points.
+ *
+ * Cost: 8 multiplications
+ */
+var const array<int> CodeDouble;
+
+/*
+ * Additions formulas are:
+ *
+ *   u1 = x1 * z2^2
+ *   u2 = x2 * z1^2
+ *   s1 = y1 * z2^3
+ *   s2 = y2 * z1^3
+ *   h = u2 - u1
+ *   r = s2 - s1
+ *   x3 = r^2 - h^3 - 2 * u1 * h^2
+ *   y3 = r * (u1 * h^2 - x3) - s1 * h^3
+ *   z3 = h * z1 * z2
+ *
+ * If both P1 and P2 are infinity, then z1 == 0 and z2 == 0, implying that
+ * z3 == 0, so the result is correct.
+ * If either of P1 or P2 is infinity, but not both, then z3 == 0, which is
+ * not correct.
+ * h == 0 only if u1 == u2; this happens in two cases:
+ * -- if s1 == s2 then P1 and/or P2 is infinity, or P1 == P2
+ * -- if s1 != s2 then P1 + P2 == infinity (but neither P1 or P2 is infinity)
+ *
+ * Thus, the following situations are not handled correctly:
+ * -- P1 = 0 and P2 != 0
+ * -- P1 != 0 and P2 = 0
+ * -- P1 = P2
+ * All other cases are properly computed. However, even in "incorrect"
+ * situations, the three coordinates still are properly formed field
+ * elements.
+ *
+ * The returned flag is cleared if r == 0. This happens in the following
+ * cases:
+ * -- Both points are on the same horizontal line (same Y coordinate).
+ * -- Both points are infinity.
+ * -- One point is infinity and the other is on line Y = 0.
+ * The third case cannot happen with our curves (there is no valid point
+ * on line Y = 0 since that would be a point of order 2). If the two
+ * source points are non-infinity, then remains only the case where the
+ * two points are on the same horizontal line.
+ *
+ * This allows us to detect the "P1 == P2" case, assuming that P1 != 0 and
+ * P2 != 0:
+ * -- If the returned value is not the point at infinity, then it was properly
+ * computed.
+ * -- Otherwise, if the returned flag is 1, then P1+P2 = 0, and the result
+ * is indeed the point at infinity.
+ * -- Otherwise (result is infinity, flag is 0), then P1 = P2 and we should
+ * use the 'double' code.
+ *
+ * Cost: 16 multiplications
+ */
+var const array<int> CodeAdd;
+
+/*
+ * Check that the point is on the curve. This code snippet assumes the
+ * following conventions:
+ * -- Coordinates x and y have been freshly decoded in P1 (but not
+ * converted to Montgomery coordinates yet).
+ * -- P2x, P2y and P2z are set to, respectively, R^2, b*R and 1.
+ */
+var const array<int> CodeCheck;
+
+/*
+ * Conversion back to affine coordinates. This code snippet assumes that
+ * the z coordinate of P2 is set to 1 (not in Montgomery representation).
+ */
+var const array<int> CodeAffine;
+
+// TODO: finish implementation.
+static final function int RunCode(
+    out Jacobian P1,
+    const out Jacobian P2,
+    const out CurveParams Cc,
+    const out array<int> Code
+)
+{
+    local int R;
+    local _Monty T[13];
+    local int U;
+    local int Op;
+    local int D;
+    local int A;
+    local int B;
+    local int Ctl;
+    local int PLen;
+    local byte Tp[66]; /* (BR_MAX_EC_SIZE + 7) >> 3 */
+
+    R = 1;
+
+    /*
+     * Copy the two operands in the dedicated registers.
+     */
+    // memcpy(t[P1x], P1->c, 3 * I15_LEN * sizeof(uint16_t));
+	// memcpy(t[P2x], P2->c, 3 * I15_LEN * sizeof(uint16_t));
+    // TODO: need static memcpy for these array sizes.
+
+    /*
+    * Run formulas.
+    */
+    for (U = 0; True; ++U)
+    {
+        Op = Code[U];
+        if (Op == 0)
+        {
+            break;
+        }
+
+        D = (Op >>> 8) & 0x0F;
+        A = (Op >>> 4) & 0x0F;
+        B = Op & 0x0F;
+        Op = Op >>> 12;
+        switch (Op)
+        {
+            case 0:
+                break;
+            case 1:
+                break;
+            case 2:
+                break;
+            case 3:
+                break;
+            case 4:
+                break;
+            default:
+                // TODO: need static variant for this too.
+                // R = R & (class'FCryptoBigInt'.static.BIsZero(T[D]));
+                break;
+        }
+    }
+
+    return R;
+}
+
+static final function CurveParams IdToCurve(EFCEllipticCurve Curve)
+{
+    return default._PP[Curve - FCEC_Secp256r1];
+};
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
 {
@@ -215,4 +367,91 @@ DefaultProperties
     _PP(0)={(P=(`P256_P_VALUES), B=(`P256_B_VALUES), R2=(`P256_R2_VALUES), P0i=0x001, PointLen=65)}
     _PP(1)={(P=(`P384_P_VALUES), B=(`P384_B_VALUES), R2=(`P384_R2_VALUES), P0i=0x001, PointLen=97)}
     _PP(2)={(P=(`P521_P_VALUES), B=(`P521_B_VALUES), R2=(`P521_R2_VALUES), P0i=0x001, PointLen=133)}
+
+    CodeDouble={(
+        /*
+        * Compute z^2 (in t1).
+        */
+        // `MMUL(`t1, `Pz, `Pz),
+        13858,
+
+        /*
+        * Compute x-z^2 (in t2) and then x+z^2 (in t1).
+        */
+        // `MSET(`t2, `Px),
+        // `MSUB(`t2, `t1),
+        // `MADD(`t1, `Px),
+        1792,
+        10080,
+        5632,
+
+        /*
+        * Compute m = 3*(x+z^2)*(x-z^2) (in t1).
+        */
+        // `MMUL(`t3, `t1, `t2),
+        // `MSET(`t1, `t3),
+        // `MADD(`t1, `t3),
+        // `MADD(`t1, `t3),
+        14439,
+        1664,
+        5760,
+        5760,
+
+        /*
+        * Compute s = 4*x*y^2 (in t2) and 2*y^2 (in t3).
+        */
+        // `MMUL(`t3, `Py, `Py),
+        // `MADD(`t3, `t3),
+        // `MMUL(`t2, `Px, `t3),
+        // `MADD(`t2, `t2),
+        14353,
+        6272,
+        14088,
+        6000,
+
+        /*
+        * Compute x' = m^2 - 2*s.
+        */
+        // `MMUL(`Px, `t1, `t1),
+        // `MSUB(`Px, `t2),
+        // `MSUB(`Px, `t2),
+        12390,
+        8304,
+        8304,
+
+        /*
+        * Compute z' = 2*y*z.
+        */
+        // `MMUL(`t4, `Py, `Pz),
+        // `MSET(`Pz, `t4),
+        // `MADD(`Pz, `t4),
+        14610,
+        656,
+        4752,
+
+        /*
+        * Compute y' = m*(s - x') - 8*y^4. Note that we already have
+        * 2*y^2 in t3.
+        */
+        // `MSUB(`t2, `Px),
+        // `MMUL(`Py, `t1, `t2),
+        // `MMUL(`t4, `t3, `t3),
+        // `MSUB(`Py, `t4),
+        // `MSUB(`Py, `t4),
+        9984,
+        12647,
+        14728,
+        8592,
+        8592,
+
+        `ENDCODE
+    )}
+
+    CodeAdd={(
+
+    )}
+
+    CodeCheck={(
+
+    )}
 }

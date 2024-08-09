@@ -1567,6 +1567,8 @@ private final simulated function int TestSpeed()
     }
     UnClock(QWClock);
     `fclog("QWClock (decode2)=" $ QWClock);
+
+    return 0;
 }
 
 DefaultProperties
