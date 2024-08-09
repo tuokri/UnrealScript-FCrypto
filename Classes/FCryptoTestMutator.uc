@@ -196,7 +196,7 @@ simulated event PreBeginPlay()
 {
     Utils = new (self) class'FCryptoUtils';
 
-    TestDelegatesToRun.Length = 4;
+    TestDelegatesToRun.Length = 5;
     TestDelegatesToRun[0].TestDelegate = TestMemory;
     TestDelegatesToRun[0].TestName = NameOf(TestMemory);
     TestDelegatesToRun[1].TestDelegate = TestOperations;
@@ -205,6 +205,8 @@ simulated event PreBeginPlay()
     TestDelegatesToRun[2].TestName = NameOf(TestMath);
     TestDelegatesToRun[3].TestDelegate = TestAesCt;
     TestDelegatesToRun[3].TestName = NameOf(TestAesCt);
+    TestDelegatesToRun[4].TestDelegate = TestSpeed;
+    TestDelegatesToRun[4].TestName = NameOf(TestSpeed);
 
     super.PreBeginPlay();
 }
@@ -1004,29 +1006,6 @@ final static function bool IsEq(int A, int B)
     return bool(-(C & 1));
 }
 
-// TODO: prototyping.
-final static function bool IsGt(int A, int B)
-{
-    local int Ltb;
-    local int Gtb;
-
-    // These are all the bits in a that are less than their corresponding bits in b.
-    Ltb = ~A & B;
-
-    // These are all the bits in a that are greater than their corresponding bits in b.
-    Gtb = A & ~B;
-
-    Ltb = Ltb | (Ltb >>>  1);
-    Ltb = Ltb | (Ltb >>>  2);
-    Ltb = Ltb | (Ltb >>>  4);
-    Ltb = Ltb | (Ltb >>>  8);
-    Ltb = Ltb | (Ltb >>> 16);
-
-    // Nonzero if a > b
-    // Zero if a <= b
-    return bool(Gtb & ~Ltb);
-}
-
 // Mirrors most of the tests from BearSSL's test_match.c,
 // with some UnrealScript-specific additions.
 private final simulated function int TestMath()
@@ -1060,130 +1039,7 @@ private final simulated function int TestMath()
     local int Remainder;
     local int HardCodedMontyFail;
     local int MontyDecodeResult;
-    local int BenchmarkRound;
     local string BigIntString;
-
-    local int Dummy;
-    local FCQWORD QW;
-    local FCQWORD QW1;
-    local FCQWORD QW2;
-    local FCQWORD QW3;
-    local FCQWORD QW4;
-    local FCQWORD QW5;
-    local FCQWORD QW6;
-    local FCQWORD QW7;
-    local FCQWORD QW8;
-    local FCQWORD QW9;
-    local bool bQWCarry;
-    local float QWClock;
-    local int QWIdx;
-
-    // TODO: Design for FCQWORD arithmetic.
-    Dummy = 0xFFFFFFFF;
-    `fclog("Dummy=" $ Dummy);
-    `fclog("Dummy=" $ ToHex(Dummy));
-    Dummy += 0xF;
-    `fclog("Dummy=" $ Dummy);
-    `fclog("Dummy=" $ ToHex(Dummy));
-
-    QW.A = 0x00000000;
-    QW.B = 0xFFFFFFFF;
-    QW.B += 0xF;
-    `fclog("QW.B=" $ QW.B);
-    `fclog("QW.B=" $ ToHex(QW.B));
-    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
-    `fclog("bQWCarry=" $ bQWCarry);
-
-    QW.B = MaxInt;
-    QW.B += 0xF;
-    `fclog("QW.B=" $ QW.B);
-    `fclog("QW.B=" $ ToHex(QW.B));
-    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
-    `fclog("bQWCarry=" $ bQWCarry);
-
-    `fclog("0x00000000 == 0xFFFFFFFF :" @ IsEq(0x00000000, 0xFFFFFFFF));
-    `fclog("0xFFFFFFFF == 0xFFFFFFFF :" @ IsEq(0xFFFFFFFF, 0xFFFFFFFF));
-    `fclog("0x00000000 == 0x00000000 :" @ IsEq(0x00000000, 0x00000000));
-    `fclog("0x7FFFFFFF == 0x00000000 :" @ IsEq(0x7FFFFFFF, 0x00000000));
-    `fclog("0x00000000 == 0x7FFFFFFF :" @ IsEq(0x00000000, 0x7FFFFFFF));
-    `fclog("0x00000001 == 0x00000002 :" @ IsEq(0x00000001, 0x00000002));
-    `fclog("0x00000002 == 0x00000001 :" @ IsEq(0x00000002, 0x00000001));
-    `fclog("0x7FFFFFFF == 0xFFFFFFFF :" @ IsEq(0x7FFFFFFF, 0xFFFFFFFF));
-    `fclog("0xFFFFFFFF == 0x7FFFFFFF :" @ IsEq(0xFFFFFFFF, 0x7FFFFFFF));
-
-    `fclog("0x00000000 >  0xFFFFFFFF :" @ IsGt(0x00000000, 0xFFFFFFFF));
-    `fclog("0xFFFFFFFF >  0xFFFFFFFF :" @ IsGt(0xFFFFFFFF, 0xFFFFFFFF));
-    `fclog("0x00000000 >  0x00000000 :" @ IsGt(0x00000000, 0x00000000));
-    `fclog("0x7FFFFFFF >  0x00000000 :" @ IsGt(0x7FFFFFFF, 0x00000000));
-    `fclog("0x00000000 >  0x7FFFFFFF :" @ IsGt(0x00000000, 0x7FFFFFFF));
-    `fclog("0x00000001 >  0x00000002 :" @ IsGt(0x00000001, 0x00000002));
-    `fclog("0x00000002 >  0x00000001 :" @ IsGt(0x00000002, 0x00000001));
-    `fclog("0x7FFFFFFF >  0xFFFFFFFF :" @ IsGt(0x7FFFFFFF, 0xFFFFFFFF));
-    `fclog("0xFFFFFFFF >  0x7FFFFFFF :" @ IsGt(0xFFFFFFFF, 0x7FFFFFFF));
-
-    QW1.A = 0x00000000;
-    QW1.B = 0xFFFFFFFF;
-    QW2.A = 0xFFFFFFFF;
-    QW2.B = 0xFFFFFFFF;
-    QW3.A = 0x00000000;
-    QW3.B = 0x00000000;
-    QW4.A = 0x00000000;
-    QW4.B = 0xFFFFFFFF;
-    QW5.A = 0x00000002;
-    QW5.B = 0xFFFFFFFF;
-    QW6.A = 0x00000000;
-    QW6.B = 0x7FFAFFFF;
-    QW7.A = 0x00000000;
-    QW7.B = 0x00000002;
-    QW8.A = 0x00000000;
-    QW8.B = 0x00000001;
-    QW9.A = 0x7FFFFFFF;
-    QW9.B = 0x7FFFFFFF;
-
-    Clock(QWClock);
-    for (QWIdx = 0; QWIdx < 1024; ++QWIdx)
-    {
-        class'FCryptoQWORD'.static.IsGt(QW1, QW1);
-        class'FCryptoQWORD'.static.IsGt(QW1, QW2);
-        class'FCryptoQWORD'.static.IsGt(QW2, QW3);
-        class'FCryptoQWORD'.static.IsGt(QW3, QW4);
-        class'FCryptoQWORD'.static.IsGt(QW4, QW5);
-        class'FCryptoQWORD'.static.IsGt(QW5, QW6);
-        class'FCryptoQWORD'.static.IsGt(QW7, QW8);
-        class'FCryptoQWORD'.static.IsGt(QW8, QW9);
-        class'FCryptoQWORD'.static.IsGt(QW9, QW1);
-        class'FCryptoQWORD'.static.IsGt(QW2, QW5);
-        class'FCryptoQWORD'.static.IsGt(QW7, QW9);
-        class'FCryptoQWORD'.static.IsGt(QW1, QW5);
-        class'FCryptoQWORD'.static.IsGt(QW1, QW4);
-        class'FCryptoQWORD'.static.IsGt(QW4, QW9);
-        class'FCryptoQWORD'.static.IsGt(QW4, QW8);
-    }
-    UnClock(QWClock);
-    `fclog("QWClock (reference)=" $ QWClock);
-
-    QWClock = 0;
-    Clock(QWClock);
-    for (QWIdx = 0; QWIdx < 1024; ++QWIdx)
-    {
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW1);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW2);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW3);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW3, QW4);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW5);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW5, QW6);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW8);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW8, QW9);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW9, QW1);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW5);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW9);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW5);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW4);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW9);
-        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW8);
-    }
-    UnClock(QWClock);
-    `fclog("QWClock (copy)=" $ QWClock);
 
     // BearSSL assumes all operands caller-allocated.
     // We'll do some bare minimum allocations here to avoid issues.
@@ -1228,38 +1084,6 @@ private final simulated function int TestMath()
         "00001EBD 00005020 (1, 13)"
     );
     X.Length = 0;
-
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
-    // TODO: dedicated benchmarking test suite.
-    QWClock = 0;
-    Clock(QWClock);
-    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
-    {
-    class'FCryptoBigInt'.static.Decode(
-            X,
-            Bytes_683384335291162482276352519,
-            Bytes_683384335291162482276352519.Length
-        );
-    }
-    UnClock(QWClock);
-    `fclog("QWClock (decode1)=" $ QWClock);
-
-    QWClock = 0;
-    Clock(QWClock);
-    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
-    {
-    class'FCryptoBigInt'.static.Decode_NonConst(
-            X,
-            Bytes_683384335291162482276352519,
-            Bytes_683384335291162482276352519.Length
-        );
-    }
-    UnClock(QWClock);
-    `fclog("QWClock (decode2)=" $ QWClock);
-
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
 
     `fcdebug("check decode Bytes_683384335291162482276352519");
     class'FCryptoBigInt'.static.Decode(
@@ -1558,6 +1382,169 @@ private final simulated function int TestMath()
 private final simulated function int TestAesCt()
 {
     return 0;
+}
+
+private final simulated function int TestSpeed()
+{
+    local int Dummy;
+    local FCQWORD QW;
+    local FCQWORD QW1;
+    local FCQWORD QW2;
+    local FCQWORD QW3;
+    local FCQWORD QW4;
+    local FCQWORD QW5;
+    local FCQWORD QW6;
+    local FCQWORD QW7;
+    local FCQWORD QW8;
+    local FCQWORD QW9;
+    local bool bQWCarry;
+    local float QWClock;
+    local int QWIdx;
+    local int BenchmarkRound;
+    local array<int> X;
+
+    // TODO: Design for FCQWORD arithmetic.
+    Dummy = 0xFFFFFFFF;
+    `fclog("Dummy=" $ Dummy);
+    `fclog("Dummy=" $ ToHex(Dummy));
+    Dummy += 0xF;
+    `fclog("Dummy=" $ Dummy);
+    `fclog("Dummy=" $ ToHex(Dummy));
+
+    QW.A = 0x00000000;
+    QW.B = 0xFFFFFFFF;
+    QW.B += 0xF;
+    `fclog("QW.B=" $ QW.B);
+    `fclog("QW.B=" $ ToHex(QW.B));
+    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
+    `fclog("bQWCarry=" $ bQWCarry);
+
+    QW.B = MaxInt;
+    QW.B += 0xF;
+    `fclog("QW.B=" $ QW.B);
+    `fclog("QW.B=" $ ToHex(QW.B));
+    bQWCarry = QW.B < 0xFFFFFFFF; // TODO: might need a bitwise check for this?
+    `fclog("bQWCarry=" $ bQWCarry);
+
+    `fclog("0x00000000 == 0xFFFFFFFF :" @ IsEq(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF == 0xFFFFFFFF :" @ IsEq(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 == 0x00000000 :" @ IsEq(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF == 0x00000000 :" @ IsEq(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 == 0x7FFFFFFF :" @ IsEq(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 == 0x00000002 :" @ IsEq(0x00000001, 0x00000002));
+    `fclog("0x00000002 == 0x00000001 :" @ IsEq(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF == 0xFFFFFFFF :" @ IsEq(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF == 0x7FFFFFFF :" @ IsEq(0xFFFFFFFF, 0x7FFFFFFF));
+
+    `fclog("0x00000000 >  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 >  0x00000000 :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF >  0x00000000 :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 >  0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 >  0x00000002 :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x00000001, 0x00000002));
+    `fclog("0x00000002 >  0x00000001 :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF >  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF >  0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsGt_AsUInt32(0xFFFFFFFF, 0x7FFFFFFF));
+
+    `fclog("0x00000000 <  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000000, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF <  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0xFFFFFFFF, 0xFFFFFFFF));
+    `fclog("0x00000000 <  0x00000000 :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000000, 0x00000000));
+    `fclog("0x7FFFFFFF <  0x00000000 :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x7FFFFFFF, 0x00000000));
+    `fclog("0x00000000 <  0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000000, 0x7FFFFFFF));
+    `fclog("0x00000001 <  0x00000002 :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000001, 0x00000002));
+    `fclog("0x00000002 <  0x00000001 :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x00000002, 0x00000001));
+    `fclog("0x7FFFFFFF <  0xFFFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0x7FFFFFFF, 0xFFFFFFFF));
+    `fclog("0xFFFFFFFF <  0x7FFFFFFF :" @ class'FCryptoQWORD'.static.IsLt_AsUInt32(0xFFFFFFFF, 0x7FFFFFFF));
+
+    QW1.A = 0x00000000;
+    QW1.B = 0xFFFFFFFF;
+    QW2.A = 0xFFFFFFFF;
+    QW2.B = 0xFFFFFFFF;
+    QW3.A = 0x00000000;
+    QW3.B = 0x00000000;
+    QW4.A = 0x00000000;
+    QW4.B = 0xFFFFFFFF;
+    QW5.A = 0x00000002;
+    QW5.B = 0xFFFFFFFF;
+    QW6.A = 0x00000000;
+    QW6.B = 0x7FFAFFFF;
+    QW7.A = 0x00000000;
+    QW7.B = 0x00000002;
+    QW8.A = 0x00000000;
+    QW8.B = 0x00000001;
+    QW9.A = 0x7FFFFFFF;
+    QW9.B = 0x7FFFFFFF;
+
+    Clock(QWClock);
+    for (QWIdx = 0; QWIdx < 10000; ++QWIdx)
+    {
+        class'FCryptoQWORD'.static.IsGt(QW1, QW1);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW2);
+        class'FCryptoQWORD'.static.IsGt(QW2, QW3);
+        class'FCryptoQWORD'.static.IsGt(QW3, QW4);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW5, QW6);
+        class'FCryptoQWORD'.static.IsGt(QW7, QW8);
+        class'FCryptoQWORD'.static.IsGt(QW8, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW9, QW1);
+        class'FCryptoQWORD'.static.IsGt(QW2, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW7, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW5);
+        class'FCryptoQWORD'.static.IsGt(QW1, QW4);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW9);
+        class'FCryptoQWORD'.static.IsGt(QW4, QW8);
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (reference)=" $ QWClock);
+
+    QWClock = 0;
+    Clock(QWClock);
+    for (QWIdx = 0; QWIdx < 10000; ++QWIdx)
+    {
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW1);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW2);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW3);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW3, QW4);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW5, QW6);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW8);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW8, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW9, QW1);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW2, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW7, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW5);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW1, QW4);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW9);
+        class'FCryptoQWORD'.static.IsGt_NonConst(QW4, QW8);
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (copy)=" $ QWClock);
+
+    QWClock = 0;
+    Clock(QWClock);
+    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
+    {
+    class'FCryptoBigInt'.static.Decode(
+            X,
+            Bytes_683384335291162482276352519,
+            Bytes_683384335291162482276352519.Length
+        );
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (decode1)=" $ QWClock);
+
+    QWClock = 0;
+    Clock(QWClock);
+    for (BenchmarkRound = 0; BenchmarkRound < 10000; ++BenchmarkRound)
+    {
+    class'FCryptoBigInt'.static.Decode_NonConst(
+            X,
+            Bytes_683384335291162482276352519,
+            Bytes_683384335291162482276352519.Length
+        );
+    }
+    UnClock(QWClock);
+    `fclog("QWClock (decode2)=" $ QWClock);
 }
 
 DefaultProperties

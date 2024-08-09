@@ -77,3 +77,37 @@ final static function bool IsGt_AsUInt32(int A, int B)
     // A <= B --> zero.
     return bool(Gtb & ~Ltb);
 }
+
+final static function bool IsLt_AsUInt32(int A, int B)
+{
+    // This is actually "less-than-or-equal"?
+    // local int Msb;
+
+    // Msb = A ^ B;
+    // Msb = Msb | (Msb >>>  1);
+    // Msb = Msb | (Msb >>>  2);
+    // Msb = Msb | (Msb >>>  4);
+    // Msb = Msb | (Msb >>>  8);
+    // Msb = Msb | (Msb >>> 16);
+    // Msb = Msb - (Msb >>>  1);
+    // return !bool((B & Msb) ^ Msb);
+
+    local int Ltb;
+    local int Gtb;
+
+    // All bits in A that are less than their corresponding bits in B.
+    Ltb = ~A & B;
+
+    // All bits in A that are greater than their corresponding bits in B.
+    Gtb = A & ~B;
+
+    Gtb = Gtb | (Gtb >>>  1);
+    Gtb = Gtb | (Gtb >>>  2);
+    Gtb = Gtb | (Gtb >>>  4);
+    Gtb = Gtb | (Gtb >>>  8);
+    Gtb = Gtb | (Gtb >>> 16);
+
+    // A >  B --> non-zero. // TODO: does this work?
+    // A <= B --> zero.     // TODO: does this work?
+    return bool(Ltb & ~Gtb);
+}
