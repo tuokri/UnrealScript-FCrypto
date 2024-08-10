@@ -283,8 +283,7 @@ static final function int RunCode(
             case 4:
                 break;
             default:
-                // TODO: need static variant for this too.
-                // R = R & (class'FCryptoBigInt'.static.BIsZero(T[D]));
+                R = R & class'FCryptoBigInt'.static.BIsZero_Static37(T[D].X);
                 break;
         }
     }

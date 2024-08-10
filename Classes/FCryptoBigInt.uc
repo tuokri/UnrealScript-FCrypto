@@ -1256,9 +1256,7 @@ static final function ToMonty(
  * This function is called "BIsZero" because
  * "IsZero" would clash with Object::IsZero.
  */
-static final function int BIsZero(
-    const out array<int> X
-)
+static final function int BIsZero(const out array<int> X)
 {
     local int Z;
     local int U;
@@ -1271,6 +1269,18 @@ static final function int BIsZero(
     return ~(Z | -Z) >>> 31;
 }
 
+static final function int BIsZero_Static37(const out int X[37])
+{
+    local int Z;
+    local int U;
+
+    Z = 0;
+    for (U = (X[0] + 15) >>> 4; U > 0; --U)
+    {
+        Z = Z | X[U];
+    }
+    return ~(Z | -Z) >>> 31;
+}
 
 /*
  * Negate big integer conditionally. The value consists of 'len' words,
