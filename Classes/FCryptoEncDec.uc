@@ -32,7 +32,7 @@ static final function int Dec32LE(
 )
 {
     return (
-          (Src[Offset + 0]      )
+          (Src[Offset    ]      )
         | (Src[Offset + 1] <<  8)
         | (Src[Offset + 2] << 16)
         | (Src[Offset + 3] << 24)

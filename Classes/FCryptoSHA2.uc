@@ -200,7 +200,7 @@ static final function int Dec32BE(
 )
 {
     return (
-          Src[Idx + 0] << 24
+          Src[Idx    ] << 24
         | Src[Idx + 1] << 16
         | Src[Idx + 2] << 8
         | Src[Idx + 3]
@@ -214,7 +214,7 @@ static final function int Dec32BE_Static64(
 )
 {
     return (
-          Src[Idx + 0] << 24
+          Src[Idx    ] << 24
         | Src[Idx + 1] << 16
         | Src[Idx + 2] << 8
         | Src[Idx + 3]
@@ -242,7 +242,7 @@ static final function Enc32BE(
     optional int Offset = 0
 )
 {
-    Dst[Offset + 0] = byte(X >>> 24);
+    Dst[Offset    ] = byte(X >>> 24);
     Dst[Offset + 1] = byte(X >>> 16);
     Dst[Offset + 2] = byte(X >>>  8);
     Dst[Offset + 3] = byte(X       );
@@ -254,7 +254,7 @@ static final function Enc32BE_Static64(
     optional int Offset = 0
 )
 {
-    Dst[Offset + 0] = byte(X >>> 24);
+    Dst[Offset    ] = byte(X >>> 24);
     Dst[Offset + 1] = byte(X >>> 16);
     Dst[Offset + 2] = byte(X >>>  8);
     Dst[Offset + 3] = byte(X       );

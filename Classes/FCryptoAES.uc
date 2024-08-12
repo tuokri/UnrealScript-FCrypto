@@ -326,17 +326,17 @@ static final function AesCtOrtho(
     local int A;
     local int B;
 
-    `SWAP2(Q[Offset + 0], Q[Offset + 1]);
+    `SWAP2(Q[Offset    ], Q[Offset + 1]);
     `SWAP2(Q[Offset + 2], Q[Offset + 3]);
     `SWAP2(Q[Offset + 4], Q[Offset + 5]);
     `SWAP2(Q[Offset + 6], Q[Offset + 7]);
 
-    `SWAP4(Q[Offset + 0], Q[Offset + 2]);
+    `SWAP4(Q[Offset    ], Q[Offset + 2]);
     `SWAP4(Q[Offset + 1], Q[Offset + 3]);
     `SWAP4(Q[Offset + 4], Q[Offset + 6]);
     `SWAP4(Q[Offset + 5], Q[Offset + 7]);
 
-    `SWAP8(Q[Offset + 0], Q[Offset + 4]);
+    `SWAP8(Q[Offset    ], Q[Offset + 4]);
     `SWAP8(Q[Offset + 1], Q[Offset + 5]);
     `SWAP8(Q[Offset + 2], Q[Offset + 6]);
     `SWAP8(Q[Offset + 3], Q[Offset + 7]);
@@ -553,7 +553,7 @@ static final function AddRoundKey(
 
     // TODO: need to benchmark whether a temp var here is better.
 
-    Q[Offset + 0] = Q[Offset + 0] ^ SK[Offset + 0];
+    Q[Offset    ] = Q[Offset    ] ^ SK[Offset    ];
     Q[Offset + 1] = Q[Offset + 1] ^ SK[Offset + 1];
     Q[Offset + 2] = Q[Offset + 2] ^ SK[Offset + 2];
     Q[Offset + 3] = Q[Offset + 3] ^ SK[Offset + 3];
