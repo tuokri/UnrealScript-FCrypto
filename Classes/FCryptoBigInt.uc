@@ -1269,6 +1269,7 @@ static final function int BIsZero(const out array<int> X)
     return ~(Z | -Z) >>> 31;
 }
 
+// See IsZero.
 static final function int BIsZero_Static37(const out int X[37])
 {
     local int Z;
