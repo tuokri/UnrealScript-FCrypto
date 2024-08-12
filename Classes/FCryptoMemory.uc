@@ -175,3 +175,30 @@ static final function MemSet_SBytes64(
         S[ByteIndex] = C;
     }
 }
+
+// TODO: is this even needed?
+// // Specialized for FCryptoEC_Prime.Jacobian 2D arrays.
+// static final function MemCpy_Jacobian_Monty(
+//     out FCryptoEC_Prime._Monty Dst,
+//     const out FCryptoEC_Prime._Monty Src[3],
+//     int NumBytes
+// )
+// {
+//     local int DstIdx;
+//     local int SrcIdx_0;
+//     local int SrcIdx_1;
+
+//     // Start with first sub-array, copy items until NumBytes
+//     // satisfied, moving to next sub-array as needed.
+
+//     // TODO: probably also need a temporary byte array for this.
+
+//     DstIdx = 0;
+//     SrcIdx_0 = 0;
+//     SrcIdx_1 = 0;
+//     while (NumBytes > 0)
+//     {
+//         Dst.X[DstIdx++] = Src[SrcIdx_0].X[SrcIdx_1];
+//         --NumBytes;
+//     }
+// }
