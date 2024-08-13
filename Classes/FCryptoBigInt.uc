@@ -398,7 +398,7 @@ static final function MemCpy(
  * Conditional copy: src[] is copied into dst[] if and only if ctl is 1.
  * dst[] and src[] may overlap completely (but not partially).
  */
-private static final function CCOPY(
+static final function CCOPY(
     int Ctl,
     out array<int> Dst,
     const out array<int> Src,
