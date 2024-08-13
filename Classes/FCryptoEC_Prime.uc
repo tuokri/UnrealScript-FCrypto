@@ -502,15 +502,110 @@ static final function int RunCode(
     return R;
 }
 
+static final function SetOne(
+    out int X[37],
+    const out int P[37]
+)
+{
+    local int PLen;
+
+    PLen = (P[0] + 31) >>> 4;
+    // memset(x, 0, plen * sizeof *x);
+    X[0] = P[0];
+    X[1] = 0x0001;
+}
+
+static final function PointZero(
+    out Jacobian P,
+    const out CurveParams Cc
+)
+{
+    // memset(P, 0, sizeof *P);
+    P.C[0].X[0] = Cc.P[0];
+    P.C[1].X[0] = Cc.P[0];
+    P.C[2].X[0] = Cc.P[0];
+}
+
+static final function PointDouble(
+    out Jacobian P,
+    const out CurveParams Cc
+)
+{
+    RunCode(P, P, Cc, default.CodeDouble);
+}
+
+static final function int PointAdd(
+    out Jacobian P1,
+    const out Jacobian P2,
+    const out CurveParams Cc
+)
+{
+    return RunCode(P1, P2, Cc, default.CodeAdd);
+}
+
+static final function PointMul(
+    out Jacobian P,
+    const out array<byte> X,
+    int XLen,
+    const out CurveParams Cc
+)
+{
+    local int Qz;
+    local int K;
+    local int Bits;
+    local int Bnz;
+    local Jacobian P2;
+    local Jacobian P3;
+    local Jacobian Q;
+    local Jacobian T;
+    local Jacobian U;
+
+    /*
+     * We do a simple double-and-add ladder with a 2-bit window
+     * to make only one add every two doublings. We thus first
+     * precompute 2P and 3P in some local buffers.
+     *
+     * We always perform two doublings and one addition; the
+     * addition is with P, 2P and 3P and is done in a temporary
+     * array.
+     *
+     * The addition code cannot handle cases where one of the
+     * operands is infinity, which is the case at the start of the
+     * ladder. We therefore need to maintain a flag that controls
+     * this situation.
+     */
+
+    // memcpy(&P2, P, sizeof P2);
+    PointDouble(P2, Cc);
+    // memcpy(&P3, P, sizeof P3);
+    PointAdd(P3, P2, Cc);
+
+    PointZero(Q, Cc);
+    Qz = 1;
+    while (XLen-- > 0)
+    {
+        for (K = 6; K >= 0; K -= 2)
+        {
+            PointDouble(Q, Cc);
+            PointDouble(Q, Cc);
+            // memcpy(&T, P, sizeof T);
+			// memcpy(&U, &Q, sizeof U);
+            // TODO: offset parameter needed for X?
+            Bits = (X[0] >>> K) & 3;
+            Bnz = class'FCryptoBigInt'.static.NEQ(Bits, 0);
+            // TODO:
+            // class'FCryptoBigInt'.static.CCOPY(class'FCryptoBigInt'.static.EQ(Bits, 2), T, P2, 0 /* sizeof T */);
+            // class'FCryptoBigInt'.static.CCOPY(class'FCryptoBigInt'.static.EQ(Bits, 3), T, P3, 0 /* sizeof T */);
+        }
+    }
+}
+
 // Differs from C version: const out param for performance.
 // TODO: benchmark the actual difference when this has a return value struct.
 static final function IdToCurve(
     EFCEllipticCurve Curve,
     const out CurveParams out_CurveParams
 )
-{
-    out_CurveParams = default._PP[Curve - FCEC_Secp256r1];
-};
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
 {
