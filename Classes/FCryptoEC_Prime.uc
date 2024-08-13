@@ -102,7 +102,7 @@ struct Jacobian
 `define MMUL(d, a, b)   (0x3000 + ((`d) << 8) + ((`a) << 4) + (`b))
 `define MINV(d, a, b)   (0x4000 + ((`d) << 8) + ((`a) << 4) + (`b))
 `define MTZ(d)          (0x5000 + ((`d) << 8))
-`define ENDCODE         0
+`define ENCODE         0
 
 /*
  * Registers for the input operands.
@@ -757,7 +757,7 @@ DefaultProperties
         8592,
         8592,
 
-        `ENDCODE
+        `ENCODE
     )}
 
     CodeAdd={(
