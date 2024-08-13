@@ -502,9 +502,14 @@ static final function int RunCode(
     return R;
 }
 
-static final function CurveParams IdToCurve(EFCEllipticCurve Curve)
+// Differs from C version: const out param for performance.
+// TODO: benchmark the actual difference when this has a return value struct.
+static final function IdToCurve(
+    EFCEllipticCurve Curve,
+    const out CurveParams out_CurveParams
+)
 {
-    return default._PP[Curve - FCEC_Secp256r1];
+    out_CurveParams = default._PP[Curve - FCEC_Secp256r1];
 };
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
