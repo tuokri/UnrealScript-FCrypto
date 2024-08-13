@@ -310,6 +310,34 @@ static final function MemSet_UInt16(
     }
 }
 
+// See MemSet_UInt16.
+// TODO: move to dedicated memory class.
+static final function MemSet_UInt16_Static37(
+    out int S[37],
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = Offset;
+    for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[IntIndex] = (S[IntIndex] & ~Mask) | ((C & 0xff) << Shift);
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
+        Mask = 0xff << Shift;
+    }
+}
+
 /**
  * C-style memset operation.
  * Offset is the number of byte values
@@ -317,6 +345,22 @@ static final function MemSet_UInt16(
  */
 static final function MemSet_Byte(
     out array<byte> S,
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int ByteIndex;
+
+    for (ByteIndex = Offset; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[ByteIndex] = C;
+    }
+}
+
+// See MemSet_Byte.
+static final function MemSet_Byte_Static66(
+    out byte S[66],
     byte C,
     int NumBytes,
     optional int Offset = 0
@@ -442,6 +486,18 @@ static final function Zero(
     MemSet_UInt16(X, 0, ((BitLen + 15) >>> 4) * SIZEOF_UINT16_T, 1);
 }
 
+// See Zero.
+static final function Zero_Static37(
+    out int X[37],
+    int BitLen
+)
+{
+    // *x ++ = bit_len;
+    // memset(x, 0, ((bit_len + 15) >> 4) * sizeof *x);
+    X[0] = BitLen & 0xFFFF; // @ALIGN-32-16.
+    MemSet_UInt16_Static37(X, 0, ((BitLen + 15) >>> 4) * SIZEOF_UINT16_T, 1);
+}
+
 /*
  * Add b[] to a[] and return the carry (0 or 1). If ctl is 0, then a[]
  * is unmodified, but the carry is still computed and returned. The
@@ -451,6 +507,64 @@ static final function Zero(
  */
 static final function int Add(
     out array<int> A,
+    const out array<int> B,
+    int Ctl
+)
+{
+    local int Cc;
+    local int U;
+    local int M;
+    local int Aw;
+    local int Bw;
+    local int Naw;
+
+    Cc = 0;
+    M = (A[0] + 31) >>> 4;
+
+    for (U = 1; U < M; ++U)
+    {
+        Aw = A[U];
+        Bw = B[U];
+        Naw = Aw + Bw + Cc;
+        Cc = Naw >>> 15;
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
+    }
+
+    return Cc;
+}
+
+// See Add.
+static final function int Add_Static37(
+    out int A[37],
+    const out int B[37],
+    int Ctl
+)
+{
+    local int Cc;
+    local int U;
+    local int M;
+    local int Aw;
+    local int Bw;
+    local int Naw;
+
+    Cc = 0;
+    M = (A[0] + 31) >>> 4;
+
+    for (U = 1; U < M; ++U)
+    {
+        Aw = A[U];
+        Bw = B[U];
+        Naw = Aw + Bw + Cc;
+        Cc = Naw >>> 15;
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
+    }
+
+    return Cc;
+}
+
+// See Add.
+static final function int Add_Static37_DynB(
+    out int A[37],
     const out array<int> B,
     int Ctl
 )
@@ -516,6 +630,65 @@ static final function int Sub(
 
     return Cc;
 }
+
+// See Sub.
+static final function int Sub_Static37_DynB(
+    out int A[37],
+    const out array<int> B,
+    int Ctl
+)
+{
+    local int Cc;
+    local int U;
+    local int M;
+    local int Aw;
+    local int Bw;
+    local int Naw;
+
+    Cc = 0;
+    M = (A[0] + 31) >>> 4;
+
+    for (U = 1; U < M; ++U)
+    {
+        Aw = A[U];
+        Bw = B[U];
+        Naw = Aw - Bw - Cc;
+        CC = Naw >>> 31;
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
+    }
+
+    return Cc;
+}
+
+// See Sub.
+static final function int Sub_Static37(
+    out int A[37],
+    const out int B[37],
+    int Ctl
+)
+{
+    local int Cc;
+    local int U;
+    local int M;
+    local int Aw;
+    local int Bw;
+    local int Naw;
+
+    Cc = 0;
+    M = (A[0] + 31) >>> 4;
+
+    for (U = 1; U < M; ++U)
+    {
+        Aw = A[U];
+        Bw = B[U];
+        Naw = Aw - Bw - Cc;
+        CC = Naw >>> 31;
+        A[U] = MUX(Ctl, Naw & 0x7FFF, Aw) & 0xFFFF; // @ALIGN-32-16.
+    }
+
+    return Cc;
+}
+
 
 /*
  * Compute the actual bit length of an integer. The argument X should
@@ -1140,6 +1313,54 @@ static final function Encode(
 
         // memset(dst, 0, len);
         MemSet_Byte(Dst, 0, Len);
+        return;
+    }
+    U = 1;
+    Acc = 0;
+    AccLen = 0;
+    while (Len-- > 0)
+    {
+        if (AccLen < 8)
+        {
+            if (U <= XLen)
+            {
+                Acc += X[U++] << AccLen;
+            }
+            AccLen += 15;
+        }
+        Dst[Len] = Acc;
+        Acc = Acc >>> 8;
+        AccLen -= 8;
+    }
+}
+
+// See Encode.
+static final function Encode_Static66(
+    out byte Dst[66],
+    int Len,
+    const out array<int> X
+)
+{
+    local int U;
+    local int XLen;
+    local int Acc;
+    local int AccLen;
+
+    XLen = (X[0] + 15) >>> 4;
+    if (XLen == 0)
+    {
+        // NOTE: BearSSL assumes all parameters are user-allocated.
+        // In UnrealScript we'll make an exception here to avoid a bug
+        // where MemSet is called with Len == 0. TODO: SHOULD WE DO THIS?
+        // Probably no way to avoid this since we are not dealing with
+        // pointers in UScript like original BearSSL code does.
+        if (Len == 0)
+        {
+            Len = 1;
+        }
+
+        // memset(dst, 0, len);
+        MemSet_Byte_Static66(Dst, 0, Len);
         return;
     }
     U = 1;
@@ -1847,6 +2068,38 @@ static final function ModPow(
     }
 }
 
+// See ModPow.
+static final function ModPow_S37_S66_Dyn_S37_S37(
+    out int X[37],
+    const out byte E[66],
+    int ELen,
+    const out array<int> M,
+    int M0I,
+    out int T1[37],
+    out int T2[37]
+)
+{
+    local int MLen;
+    local int K;
+    local int Ctl;
+
+    // TODO: body for this func.
+
+    MLen = ((M[0] + 31) >>> 4) * SIZEOF_UINT16_T;
+    // MemCpy(T1, X, MLen);
+    // ToMonty(T1, M);
+    // Zero(X, M[0]);
+    // X[1] = 1;
+    // for (K = 0; K < (ELen << 3); ++K)
+    // {
+    //     Ctl = (E[ELen - 1 - (K >>> 3)] >>> (K & 7)) & 1;
+    //     MontyMul_S37_S37_S37_DynM(T2, X, T1, M, M0I);
+    //     CCOPY(Ctl, X, T2, MLen);
+    //     MontyMul_S37_S37_S37_DynM(T2, T1, T1, M, M0I);
+    //     MemCpy(T1, T2, MLen);
+    // }
+}
+
 /*
  * Compute a modular Montgomery multiplication. d[] is filled with the
  * value of x*y/R modulo m[] (where R is the Montgomery factor). The
@@ -1923,6 +2176,76 @@ static final function MontyMul(
      * the modulus.
      */
     Sub(D, M, NEQ(DH, 0) | NOT(Sub(D, M, 0)));
+}
+
+// See MontyMul.
+static final function MontyMul_S37_S37_S37_DynM(
+    out int D[37],
+    const out int X[37],
+    const out int Y[37],
+    const out array<int> M,
+    int M0I
+)
+{
+    local int Len;
+    local int Len4;
+    local int U;
+    local int V;
+    local int Dh;
+    local int F;
+    local int Xu;
+    local int R;
+    local int Zh;
+    local int Z;
+
+    Len = (M[0] + 15) >>> 4;
+    Len4 = Len & ~3;
+    Zero_Static37(D, M[0]);
+    Dh = 0;
+    for (U = 0; U < Len; ++U)
+    {
+        Xu = X[U + 1];
+        // f = MUL15((d[1] + MUL15(x[u + 1], y[1])) & 0x7FFF, m0i) & 0x7FFF;
+        F = (((D[1] + (X[U + 1] * Y[1])) & 0x7FFF) * M0I) & 0x7FFF;
+        R = 0;
+        for (V = 0; V < Len4; V += 4)
+        {
+            Z = D[V + 1] + (Xu * Y[V + 1]) + (F * M[V + 1]) + R;
+            R = Z >>> 15;
+            D[V/*+0*/] = Z & 0x7FFF;
+            Z = D[V + 2] + (Xu * Y[V + 2]) + (F * M[V + 2]) + R;
+            R = Z >>> 15;
+            D[V + 1] = Z & 0x7FFF;
+            Z = D[V + 3] + (Xu * Y[V + 3]) + (F * M[V + 3]) + R;
+            R = Z >>> 15;
+            D[V + 2] = Z & 0x7FFF;
+            Z = D[V + 4] + (Xu * Y[V + 4]) + (F * M[V + 4]) + R;
+            R = Z >>> 15;
+            D[V + 3] = Z & 0x7FFF;
+        }
+
+        for (Z = 0; V < Len; ++V)
+        {
+            Z = D[V + 1] + (Xu * Y[V + 1]) + (F * M[V + 1]) + R;
+            R = Z >>> 15;
+            D[V/*+0*/] = Z & 0x7FFF;
+        }
+
+        Zh = Dh + R;
+        D[Len] = Zh & 0x7FFF;
+        Dh = Zh >>> 15;
+    }
+
+    /*
+     * Restore the bit length (it was overwritten in the loop above).
+     */
+    D[0] = M[0];
+
+    /*
+     * d[] may be greater than m[], but it is still lower than twice
+     * the modulus.
+     */
+    Sub_Static37_DynB(D, M, NEQ(DH, 0) | NOT(Sub_Static37_DynB(D, M, 0)));
 }
 
 /*

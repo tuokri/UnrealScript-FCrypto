@@ -240,7 +240,9 @@ static final function int RunCode(
     local int U;
     local int Op;
     local int D;
+    local int D_Tmp;
     local int A;
+    local int A_Tmp;
     local int B;
     local int Ctl;
     local int PLen;
@@ -252,7 +254,7 @@ static final function int RunCode(
      * Copy the two operands in the dedicated registers.
      */
     // memcpy(t[P1x], P1->c, 3 * I15_LEN * sizeof(uint16_t));
-	// memcpy(t[P2x], P2->c, 3 * I15_LEN * sizeof(uint16_t));
+    // memcpy(t[P2x], P2->c, 3 * I15_LEN * sizeof(uint16_t));
     // class'FCryptoMemory'.static.MemCpy_Jacobian_Monty(T[`P1x], P1.C, 222);
     // class'FCryptoMemory'.static.MemCpy_Jacobian_Monty(T[`P2x], P2.C, 222);
     T[`P1x].X[ 0] = P1.C[0].X[ 0]; T[`P1y].X[ 0] = P1.C[1].X[ 0]; T[`P1z].X[ 0] = P1.C[2].X[ 0];
@@ -349,20 +351,153 @@ static final function int RunCode(
         switch (Op)
         {
             case 0:
+                // memcpy(t[d], t[a], I15_LEN * sizeof(uint16_t));
+                T[D    ].X[ 0] = T[A    ].X[ 0];
+                T[D    ].X[ 1] = T[A    ].X[ 1];
+                T[D    ].X[ 2] = T[A    ].X[ 2];
+                T[D    ].X[ 3] = T[A    ].X[ 3];
+                T[D    ].X[ 4] = T[A    ].X[ 4];
+                T[D    ].X[ 5] = T[A    ].X[ 5];
+                T[D    ].X[ 6] = T[A    ].X[ 6];
+                T[D    ].X[ 7] = T[A    ].X[ 7];
+                T[D    ].X[ 8] = T[A    ].X[ 8];
+                T[D    ].X[ 9] = T[A    ].X[ 9];
+                T[D    ].X[10] = T[A    ].X[10];
+                T[D    ].X[11] = T[A    ].X[11];
+                T[D    ].X[12] = T[A    ].X[12];
+                T[D    ].X[13] = T[A    ].X[13];
+                T[D    ].X[14] = T[A    ].X[14];
+                T[D    ].X[15] = T[A    ].X[15];
+                T[D    ].X[16] = T[A    ].X[16];
+                T[D    ].X[17] = T[A    ].X[17];
+                T[D    ].X[18] = T[A    ].X[18];
+                T[D    ].X[19] = T[A    ].X[19];
+                T[D    ].X[20] = T[A    ].X[20];
+                T[D    ].X[21] = T[A    ].X[21];
+                T[D    ].X[22] = T[A    ].X[22];
+                T[D    ].X[23] = T[A    ].X[23];
+                T[D    ].X[24] = T[A    ].X[24];
+                T[D    ].X[25] = T[A    ].X[25];
+                T[D    ].X[26] = T[A    ].X[26];
+                T[D    ].X[27] = T[A    ].X[27];
+                T[D    ].X[28] = T[A    ].X[28];
+                T[D    ].X[29] = T[A    ].X[29];
+                T[D    ].X[30] = T[A    ].X[30];
+                T[D    ].X[31] = T[A    ].X[31];
+                T[D    ].X[32] = T[A    ].X[32];
+                T[D    ].X[33] = T[A    ].X[33];
+                T[D    ].X[34] = T[A    ].X[34];
+                T[D    ].X[35] = T[A    ].X[35];
+                T[D    ].X[36] = T[A    ].X[36];
+
+                D_Tmp = D + 1;
+                A_Tmp = A + 1;
+                T[D_Tmp].X[ 0] = T[A_Tmp].X[ 0];
+                T[D_Tmp].X[ 1] = T[A_Tmp].X[ 1];
+                T[D_Tmp].X[ 2] = T[A_Tmp].X[ 2];
+                T[D_Tmp].X[ 3] = T[A_Tmp].X[ 3];
+                T[D_Tmp].X[ 4] = T[A_Tmp].X[ 4];
+                T[D_Tmp].X[ 5] = T[A_Tmp].X[ 5];
+                T[D_Tmp].X[ 6] = T[A_Tmp].X[ 6];
+                T[D_Tmp].X[ 7] = T[A_Tmp].X[ 7];
+                T[D_Tmp].X[ 8] = T[A_Tmp].X[ 8];
+                T[D_Tmp].X[ 9] = T[A_Tmp].X[ 9];
+                T[D_Tmp].X[10] = T[A_Tmp].X[10];
+                T[D_Tmp].X[11] = T[A_Tmp].X[11];
+                T[D_Tmp].X[12] = T[A_Tmp].X[12];
+                T[D_Tmp].X[13] = T[A_Tmp].X[13];
+                T[D_Tmp].X[14] = T[A_Tmp].X[14];
+                T[D_Tmp].X[15] = T[A_Tmp].X[15];
+                T[D_Tmp].X[16] = T[A_Tmp].X[16];
+                T[D_Tmp].X[17] = T[A_Tmp].X[17];
+                T[D_Tmp].X[18] = T[A_Tmp].X[18];
+                T[D_Tmp].X[19] = T[A_Tmp].X[19];
+                T[D_Tmp].X[20] = T[A_Tmp].X[20];
+                T[D_Tmp].X[21] = T[A_Tmp].X[21];
+                T[D_Tmp].X[22] = T[A_Tmp].X[22];
+                T[D_Tmp].X[23] = T[A_Tmp].X[23];
+                T[D_Tmp].X[24] = T[A_Tmp].X[24];
+                T[D_Tmp].X[25] = T[A_Tmp].X[25];
+                T[D_Tmp].X[26] = T[A_Tmp].X[26];
+                T[D_Tmp].X[27] = T[A_Tmp].X[27];
+                T[D_Tmp].X[28] = T[A_Tmp].X[28];
+                T[D_Tmp].X[29] = T[A_Tmp].X[29];
+                T[D_Tmp].X[30] = T[A_Tmp].X[30];
+                T[D_Tmp].X[31] = T[A_Tmp].X[31];
+                T[D_Tmp].X[32] = T[A_Tmp].X[32];
+                T[D_Tmp].X[33] = T[A_Tmp].X[33];
+                T[D_Tmp].X[34] = T[A_Tmp].X[34];
+                T[D_Tmp].X[35] = T[A_Tmp].X[35];
+                T[D_Tmp].X[36] = T[A_Tmp].X[36];
                 break;
             case 1:
+                Ctl = class'FCryptoBigInt'.static.Add_Static37(T[D].X, T[A].X, 1);
+                Ctl = Ctl | class'FCryptoBigInt'.static.NOT(
+                    class'FCryptoBigInt'.static.Sub_Static37_DynB(T[D].X, Cc.P, 0));
+                class'FCryptoBigInt'.static.Sub_Static37_DynB(T[D].X, Cc.P, Ctl);
                 break;
             case 2:
+                class'FCryptoBigInt'.static.Add_Static37_DynB(T[D].X, Cc.P,
+                    class'FCryptoBigInt'.static.Sub_Static37(T[D].X, T[A].X, 1));
                 break;
             case 3:
+                class'FCryptoBigInt'.static.MontyMul_S37_S37_S37_DynM(
+                    T[D].X, T[A].X, T[B].X, Cc.P, Cc.P0i);
                 break;
             case 4:
+                PLen = (Cc.P[0] - (Cc.P[0] >>> 4) + 7) >>> 3;
+                class'FCryptoBigInt'.static.Encode_Static66(Tp, PLen, Cc.P);
+                Tp[PLen - 1] -= 2;
+                class'FCryptoBigInt'.static.ModPow_S37_S66_Dyn_S37_S37(
+                    T[D].X, Tp, PLen, Cc.P, Cc.P0i, T[A].X, T[B].X);
                 break;
             default:
                 R = R & class'FCryptoBigInt'.static.BIsZero_Static37(T[D].X);
                 break;
         }
     }
+
+    /*
+     * Copy back result.
+     */
+    // memcpy(P1->c, t[P1x], 3 * I15_LEN * sizeof(uint16_t));
+    P1.C[0].X[ 0] = T[`P1x].X[ 0]; P1.C[1].X[ 0] = T[`P1y].X[ 0]; P1.C[2].X[ 0] = T[`P1z].X[ 0];
+    P1.C[0].X[ 1] = T[`P1x].X[ 1]; P1.C[1].X[ 1] = T[`P1y].X[ 1]; P1.C[2].X[ 1] = T[`P1z].X[ 1];
+    P1.C[0].X[ 2] = T[`P1x].X[ 2]; P1.C[1].X[ 2] = T[`P1y].X[ 2]; P1.C[2].X[ 2] = T[`P1z].X[ 2];
+    P1.C[0].X[ 3] = T[`P1x].X[ 3]; P1.C[1].X[ 3] = T[`P1y].X[ 3]; P1.C[2].X[ 3] = T[`P1z].X[ 3];
+    P1.C[0].X[ 4] = T[`P1x].X[ 4]; P1.C[1].X[ 4] = T[`P1y].X[ 4]; P1.C[2].X[ 4] = T[`P1z].X[ 4];
+    P1.C[0].X[ 5] = T[`P1x].X[ 5]; P1.C[1].X[ 5] = T[`P1y].X[ 5]; P1.C[2].X[ 5] = T[`P1z].X[ 5];
+    P1.C[0].X[ 6] = T[`P1x].X[ 6]; P1.C[1].X[ 6] = T[`P1y].X[ 6]; P1.C[2].X[ 6] = T[`P1z].X[ 6];
+    P1.C[0].X[ 7] = T[`P1x].X[ 7]; P1.C[1].X[ 7] = T[`P1y].X[ 7]; P1.C[2].X[ 7] = T[`P1z].X[ 7];
+    P1.C[0].X[ 8] = T[`P1x].X[ 8]; P1.C[1].X[ 8] = T[`P1y].X[ 8]; P1.C[2].X[ 8] = T[`P1z].X[ 8];
+    P1.C[0].X[ 9] = T[`P1x].X[ 9]; P1.C[1].X[ 9] = T[`P1y].X[ 9]; P1.C[2].X[ 9] = T[`P1z].X[ 9];
+    P1.C[0].X[10] = T[`P1x].X[10]; P1.C[1].X[10] = T[`P1y].X[10]; P1.C[2].X[10] = T[`P1z].X[10];
+    P1.C[0].X[11] = T[`P1x].X[11]; P1.C[1].X[11] = T[`P1y].X[11]; P1.C[2].X[11] = T[`P1z].X[11];
+    P1.C[0].X[12] = T[`P1x].X[12]; P1.C[1].X[12] = T[`P1y].X[12]; P1.C[2].X[12] = T[`P1z].X[12];
+    P1.C[0].X[13] = T[`P1x].X[13]; P1.C[1].X[13] = T[`P1y].X[13]; P1.C[2].X[13] = T[`P1z].X[13];
+    P1.C[0].X[14] = T[`P1x].X[14]; P1.C[1].X[14] = T[`P1y].X[14]; P1.C[2].X[14] = T[`P1z].X[14];
+    P1.C[0].X[15] = T[`P1x].X[15]; P1.C[1].X[15] = T[`P1y].X[15]; P1.C[2].X[15] = T[`P1z].X[15];
+    P1.C[0].X[16] = T[`P1x].X[16]; P1.C[1].X[16] = T[`P1y].X[16]; P1.C[2].X[16] = T[`P1z].X[16];
+    P1.C[0].X[17] = T[`P1x].X[17]; P1.C[1].X[17] = T[`P1y].X[17]; P1.C[2].X[17] = T[`P1z].X[17];
+    P1.C[0].X[18] = T[`P1x].X[18]; P1.C[1].X[18] = T[`P1y].X[18]; P1.C[2].X[18] = T[`P1z].X[18];
+    P1.C[0].X[19] = T[`P1x].X[19]; P1.C[1].X[19] = T[`P1y].X[19]; P1.C[2].X[19] = T[`P1z].X[19];
+    P1.C[0].X[20] = T[`P1x].X[20]; P1.C[1].X[20] = T[`P1y].X[20]; P1.C[2].X[20] = T[`P1z].X[20];
+    P1.C[0].X[21] = T[`P1x].X[21]; P1.C[1].X[21] = T[`P1y].X[21]; P1.C[2].X[21] = T[`P1z].X[21];
+    P1.C[0].X[22] = T[`P1x].X[22]; P1.C[1].X[22] = T[`P1y].X[22]; P1.C[2].X[22] = T[`P1z].X[22];
+    P1.C[0].X[23] = T[`P1x].X[23]; P1.C[1].X[23] = T[`P1y].X[23]; P1.C[2].X[23] = T[`P1z].X[23];
+    P1.C[0].X[24] = T[`P1x].X[24]; P1.C[1].X[24] = T[`P1y].X[24]; P1.C[2].X[24] = T[`P1z].X[24];
+    P1.C[0].X[25] = T[`P1x].X[25]; P1.C[1].X[25] = T[`P1y].X[25]; P1.C[2].X[25] = T[`P1z].X[25];
+    P1.C[0].X[26] = T[`P1x].X[26]; P1.C[1].X[26] = T[`P1y].X[26]; P1.C[2].X[26] = T[`P1z].X[26];
+    P1.C[0].X[27] = T[`P1x].X[27]; P1.C[1].X[27] = T[`P1y].X[27]; P1.C[2].X[27] = T[`P1z].X[27];
+    P1.C[0].X[28] = T[`P1x].X[28]; P1.C[1].X[28] = T[`P1y].X[28]; P1.C[2].X[28] = T[`P1z].X[28];
+    P1.C[0].X[29] = T[`P1x].X[29]; P1.C[1].X[29] = T[`P1y].X[29]; P1.C[2].X[29] = T[`P1z].X[29];
+    P1.C[0].X[30] = T[`P1x].X[30]; P1.C[1].X[30] = T[`P1y].X[30]; P1.C[2].X[30] = T[`P1z].X[30];
+    P1.C[0].X[31] = T[`P1x].X[31]; P1.C[1].X[31] = T[`P1y].X[31]; P1.C[2].X[31] = T[`P1z].X[31];
+    P1.C[0].X[32] = T[`P1x].X[32]; P1.C[1].X[32] = T[`P1y].X[32]; P1.C[2].X[32] = T[`P1z].X[32];
+    P1.C[0].X[33] = T[`P1x].X[33]; P1.C[1].X[33] = T[`P1y].X[33]; P1.C[2].X[33] = T[`P1z].X[33];
+    P1.C[0].X[34] = T[`P1x].X[34]; P1.C[1].X[34] = T[`P1y].X[34]; P1.C[2].X[34] = T[`P1z].X[34];
+    P1.C[0].X[35] = T[`P1x].X[35]; P1.C[1].X[35] = T[`P1y].X[35]; P1.C[2].X[35] = T[`P1z].X[35];
+    P1.C[0].X[36] = T[`P1x].X[36]; P1.C[1].X[36] = T[`P1y].X[36]; P1.C[2].X[36] = T[`P1z].X[36];
 
     return R;
 }
