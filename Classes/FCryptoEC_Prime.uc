@@ -606,6 +606,9 @@ static final function IdToCurve(
     EFCEllipticCurve Curve,
     const out CurveParams out_CurveParams
 )
+{
+    out_CurveParams = default._PP[Curve - FCEC_Secp256r1];
+}
 
 static function array<byte> Generator(EFCEllipticCurve Curve, out int Len)
 {
