@@ -604,7 +604,7 @@ static final function PointMul(
 // TODO: benchmark the actual difference when this has a return value struct.
 static final function IdToCurve(
     EFCEllipticCurve Curve,
-    const out CurveParams out_CurveParams
+    out CurveParams out_CurveParams
 )
 {
     out_CurveParams = default._PP[Curve - FCEC_Secp256r1];
