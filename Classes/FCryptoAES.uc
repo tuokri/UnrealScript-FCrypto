@@ -30,6 +30,7 @@ class FCryptoAES extends Object
     notplaceable
     abstract;
 
+`include(FCrypto\Classes\FCryptoMacros.uci);
 `include(FCrypto\Classes\FCryptoAESMacros.uci);
 
 var const array<byte> RCon;
@@ -551,8 +552,39 @@ static final function AddRoundKey(
     //     Q[I] = Q[I] ^ SK[I];
     // }
 
-    // TODO: need to benchmark whether a temp var here is better.
+    local int Offset_1;
+    local int Offset_2;
+    local int Offset_3;
+    local int Offset_4;
+    local int Offset_5;
+    local int Offset_6;
+    local int Offset_7;
 
+    Offset_1 = Offset + 1;
+    Offset_2 = Offset + 2;
+    Offset_3 = Offset + 3;
+    Offset_4 = Offset + 4;
+    Offset_5 = Offset + 5;
+    Offset_6 = Offset + 6;
+    Offset_7 = Offset + 7;
+
+    Q[Offset  ] = Q[Offset  ] ^ SK[Offset  ];
+    Q[Offset_1] = Q[Offset_1] ^ SK[Offset_1];
+    Q[Offset_2] = Q[Offset_2] ^ SK[Offset_2];
+    Q[Offset_3] = Q[Offset_3] ^ SK[Offset_3];
+    Q[Offset_4] = Q[Offset_4] ^ SK[Offset_4];
+    Q[Offset_5] = Q[Offset_5] ^ SK[Offset_5];
+    Q[Offset_6] = Q[Offset_6] ^ SK[Offset_6];
+    Q[Offset_7] = Q[Offset_7] ^ SK[Offset_7];
+}
+
+`if(`isdefined(FCBENCHMARK))
+static final function AddRoundKey_NoTempVars(
+    out array<int> Q,
+    const out array<int> SK,
+    optional int Offset = 0
+)
+{
     Q[Offset    ] = Q[Offset    ] ^ SK[Offset    ];
     Q[Offset + 1] = Q[Offset + 1] ^ SK[Offset + 1];
     Q[Offset + 2] = Q[Offset + 2] ^ SK[Offset + 2];
@@ -562,6 +594,7 @@ static final function AddRoundKey(
     Q[Offset + 6] = Q[Offset + 6] ^ SK[Offset + 6];
     Q[Offset + 7] = Q[Offset + 7] ^ SK[Offset + 7];
 }
+`endif
 
 // TODO: can be made a macro for performance?
 static final function InvShiftRows(out array<int> Q)

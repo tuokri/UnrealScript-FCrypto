@@ -1401,9 +1401,11 @@ private final simulated function int TestSpeed()
     local FCQWORD QW9;
     local bool bQWCarry;
     local float QWClock;
+    local float Q;
     local int QWIdx;
     local int BenchmarkRound;
     local array<int> X;
+    local array<int> Y;
 
     // TODO: Design for FCQWORD arithmetic.
     Dummy = 0xFFFFFFFF;
@@ -1567,6 +1569,32 @@ private final simulated function int TestSpeed()
     }
     UnClock(QWClock);
     `fclog("QWClock (decode2)=" $ QWClock);
+
+    Q = 0;
+    X.Length = 0;
+    X.Length = 1024;
+    Y.Length = 0;
+    Y.Length = 1024;
+    Clock(Q);
+    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    {
+        class'FCryptoAES'.static.AddRoundKey(X, Y);
+    }
+    UnClock(Q);
+    `fclog("Qclock (AddRoundKey (TempVars)    )=" $ Q);
+
+    Q = 0;
+    X.Length = 0;
+    X.Length = 1024;
+    Y.Length = 0;
+    Y.Length = 1024;
+    Clock(Q);
+    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    {
+        class'FCryptoAES'.static.AddRoundKey_NoTempVars(X, Y);
+    }
+    UnClock(Q);
+    `fclog("Qclock (AddRoundKey (no temp vars))=" $ Q);
 
     return 0;
 }
