@@ -82,6 +82,11 @@ struct Jacobian
     var _Monty C[3];
 };
 
+// TODO: not needed?
+// const SIZEOF_JACOBIAN = 222;
+
+var const Jacobian ZERO_JACOBIAN;
+
 /*
  * We use a custom interpreter that uses a dozen registers, and
  * only six operations:
@@ -511,6 +516,7 @@ static final function SetOne(
 
     PLen = (P[0] + 31) >>> 4;
     // memset(x, 0, plen * sizeof *x);
+    class'FCryptoMemory'.static.MemSet_UInt16_Static37(X, 0, PLen * SIZEOF_UINT16_T);
     X[0] = P[0];
     X[1] = 0x0001;
 }
@@ -521,6 +527,9 @@ static final function PointZero(
 )
 {
     // memset(P, 0, sizeof *P);
+    // `ZERO_JACOBIAN(P); <-- this is much slower than assignment.
+    P = default.ZERO_JACOBIAN;
+
     P.C[0].X[0] = Cc.P[0];
     P.C[1].X[0] = Cc.P[0];
     P.C[2].X[0] = Cc.P[0];
@@ -554,6 +563,7 @@ static final function PointMul(
     local int K;
     local int Bits;
     local int Bnz;
+    local int XOffset;
     local Jacobian P2;
     local Jacobian P3;
     local Jacobian Q;
@@ -582,6 +592,7 @@ static final function PointMul(
 
     PointZero(Q, Cc);
     Qz = 1;
+    XOffset = 0;
     while (XLen-- > 0)
     {
         for (K = 6; K >= 0; K -= 2)
@@ -589,15 +600,89 @@ static final function PointMul(
             PointDouble(Q, Cc);
             PointDouble(Q, Cc);
             // memcpy(&T, P, sizeof T);
-			// memcpy(&U, &Q, sizeof U);
+            // memcpy(&U, &Q, sizeof U);
             // TODO: offset parameter needed for X?
-            Bits = (X[0] >>> K) & 3;
+            Bits = (X[XOffset] >>> K) & 3;
             Bnz = class'FCryptoBigInt'.static.NEQ(Bits, 0);
             // TODO:
             // class'FCryptoBigInt'.static.CCOPY(class'FCryptoBigInt'.static.EQ(Bits, 2), T, P2, 0 /* sizeof T */);
             // class'FCryptoBigInt'.static.CCOPY(class'FCryptoBigInt'.static.EQ(Bits, 3), T, P3, 0 /* sizeof T */);
+            PointAdd(U, T, Cc);
+            // CCOPY(bnz & qz, &Q, &T, sizeof Q);
+            // CCOPY(bnz & ~qz, &Q, &U, sizeof Q);
+            Qz = Qz & (~Bnz);
         }
+        ++XOffset;
     }
+    // memcpy(P, &Q, sizeof Q);
+}
+
+static final function int PointDecode(
+    out Jacobian P,
+    const out array<byte> Src,
+    int Len,
+    const out CurveParams Cc
+)
+{
+    local int PLen;
+    local int ZLen;
+    local int R;
+    local Jacobian Q;
+
+    /*
+     * Points must use uncompressed format:
+     * -- first byte is 0x04;
+     * -- coordinates X and Y use unsigned big-endian, with the same
+     *    length as the field modulus.
+     *
+     * We don't support hybrid format (uncompressed, but first byte
+     * has value 0x06 or 0x07, depending on the least significant bit
+     * of Y) because it is rather useless, and explicitly forbidden
+     * by PKIX (RFC 5480, section 2.2).
+     *
+     * We don't support compressed format either, because it is not
+     * much used in practice (there are or were patent-related
+     * concerns about point compression, which explains the lack of
+     * generalised support). Also, point compression support would
+     * need a bit more code.
+     */
+
+    PointZero(P, Cc);
+    PLen = (CC.P[0] - (CC.P[0] >>> 4) + 7) >>> 3;
+    if (Len != 1 + (PLen << 1))
+    {
+        return 0;
+    }
+    // R = class'FCryptoBigInt'.static.DecodeMod(P.C[0], Buf + 1, PLen, CC.P);
+    // R = R & class'FCryptoBigInt'.static.DecodeMod(P.C[0], Buf + 1 + PLen, PLen, Cc.P);
+
+    /*
+     * Check first byte.
+     */
+    R = R & class'FCryptoBigInt'.static.EQ(Src[0], 0x04);
+
+    /*
+     * Convert coordinates and check that the point is valid.
+     */
+    // ZLen = ((Cc.P[0] + 31) >>> 4) * SIZEOF_UINT16_T;
+    // memcpy(Q.c[0], cc->R2, zlen);
+	// memcpy(Q.c[1], cc->b, zlen);
+	// SetOne(Q.C[2], Cc.P); TODO: need another variant for this.
+	R = R & ~RunCode(P, Q, Cc, default.CodeCheck);
+    return R;
+}
+
+/*
+ * Encode a point. This method assumes that the point is correct and is
+ * not the point at infinity. Encoded size is always 1+2*plen, where
+ * plen is the field modulus length, in bytes.
+ */
+static final function PointEncode(
+    out array<byte> Dst,
+    const out Jacobian P,
+    const out CurveParams Cc
+)
+{
 }
 
 // Differs from C version: const out param for performance.
@@ -667,15 +752,15 @@ static function int MulAdd(
 DefaultProperties
 {
     // TODO: are these needed?
-    P256_P={(`P256_P_VALUES)}
-    P256_R2={(`P256_R2_VALUES)}
-    P256_B={(`P256_B_VALUES)}
-    P384_P={(`P384_P_VALUES)}
-    P384_R2={(`P384_R2_VALUES)}
-    P384_B={(`P384_B_VALUES)}
-    P521_P={(`P521_P_VALUES)}
-    P521_R2={(`P521_R2_VALUES)}
-    P521_B={(`P521_B_VALUES)}
+    P256_P  = {(`P256_P_VALUES)}
+    P256_R2 = {(`P256_R2_VALUES)}
+    P256_B  = {(`P256_B_VALUES)}
+    P384_P  = {(`P384_P_VALUES)}
+    P384_R2 = {(`P384_R2_VALUES)}
+    P384_B  = {(`P384_B_VALUES)}
+    P521_P  = {(`P521_P_VALUES)}
+    P521_R2 = {(`P521_R2_VALUES)}
+    P521_B  = {(`P521_B_VALUES)}
 
     _PP(0)={(P=(`P256_P_VALUES), B=(`P256_B_VALUES), R2=(`P256_R2_VALUES), P0i=0x001, PointLen=65)}
     _PP(1)={(P=(`P384_P_VALUES), B=(`P384_B_VALUES), R2=(`P384_R2_VALUES), P0i=0x001, PointLen=97)}
@@ -762,9 +847,11 @@ DefaultProperties
 
     CodeAdd={(
 
+        `ENCODE
     )}
 
     CodeCheck={(
 
+        `ENCODE
     )}
 }

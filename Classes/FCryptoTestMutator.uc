@@ -45,6 +45,7 @@ class FCryptoTestMutator extends Mutator
     config(Mutator_FCryptoTest);
 
 `include(FCrypto\Classes\FCryptoMacros.uci);
+`include(FCrypto\Classes\FCryptoEllipticCurveMacros.uci);
 
 var private FCryptoGMPClient GMPClient;
 var private FCryptoUtils Utils;
@@ -131,6 +132,8 @@ var(FCryptoTests) editconst const array<string> KAT_AES_CBC;
  */
 var(FCryptoTests) editconst const array<string> KAT_AES_CTR;
 
+var const FCryptoEC_Prime.Jacobian ZERO_JACOBIAN;
+
 // Callback to FCryptoGMPClient::RandPrime.
 final simulated function AddRandomPrime(
     const out array<byte> P
@@ -196,7 +199,7 @@ simulated event PreBeginPlay()
 {
     Utils = new (self) class'FCryptoUtils';
 
-    TestDelegatesToRun.Length = 5;
+    TestDelegatesToRun.Length = 7;
     TestDelegatesToRun[0].TestDelegate = TestMemory;
     TestDelegatesToRun[0].TestName = NameOf(TestMemory);
     TestDelegatesToRun[1].TestDelegate = TestOperations;
@@ -205,8 +208,13 @@ simulated event PreBeginPlay()
     TestDelegatesToRun[2].TestName = NameOf(TestMath);
     TestDelegatesToRun[3].TestDelegate = TestAesCt;
     TestDelegatesToRun[3].TestName = NameOf(TestAesCt);
+
     TestDelegatesToRun[4].TestDelegate = TestSpeed;
     TestDelegatesToRun[4].TestName = NameOf(TestSpeed);
+    TestDelegatesToRun[5].TestDelegate = TestSpeed;
+    TestDelegatesToRun[5].TestName = NameOf(TestSpeed);
+    TestDelegatesToRun[6].TestDelegate = TestSpeed;
+    TestDelegatesToRun[6].TestName = NameOf(TestSpeed);
 
     super.PreBeginPlay();
 }
@@ -1406,6 +1414,13 @@ private final simulated function int TestSpeed()
     local int BenchmarkRound;
     local array<int> X;
     local array<int> Y;
+    local FCryptoEC_Prime.Jacobian Jacobian1;
+    local FCryptoEC_Prime.Jacobian Jacobian2;
+
+    // TODO: need to benchmark whether using static arrays in some places
+    // actually offers a performance benefit over just using dynamic
+    // arrays everywhere. FCryptoEC_Prime would be a good candidate
+    // for such benchmarks.
 
     // TODO: Design for FCQWORD arithmetic.
     Dummy = 0xFFFFFFFF;
@@ -1576,7 +1591,7 @@ private final simulated function int TestSpeed()
     Y.Length = 0;
     Y.Length = 1024;
     Clock(Q);
-    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    for (BenchmarkRound = 0; BenchmarkRound < 1024; ++BenchmarkRound)
     {
         class'FCryptoAES'.static.AddRoundKey(X, Y);
     }
@@ -1589,12 +1604,34 @@ private final simulated function int TestSpeed()
     Y.Length = 0;
     Y.Length = 1024;
     Clock(Q);
-    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    for (BenchmarkRound = 0; BenchmarkRound < 1024; ++BenchmarkRound)
     {
         class'FCryptoAES'.static.AddRoundKey_NoTempVars(X, Y);
     }
     UnClock(Q);
     `fclog("Qclock (AddRoundKey (no temp vars))=" $ Q);
+
+    Q = 0;
+    Clock(Q);
+    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    {
+        `ZERO_JACOBIAN(Jacobian1);
+    }
+    UnClock(Q);
+    `fclog("Qclock (zero jacobian (macro)     )=" $ Q);
+
+    Q = 0;
+    Clock(Q);
+    for (BenchmarkRound = 0; BenchmarkRound < 512; ++BenchmarkRound)
+    {
+        Jacobian2 = default.ZERO_JACOBIAN;
+    }
+    UnClock(Q);
+    `fclog("Qclock (zero jacobian (assignment))=" $ Q);
+
+    // Silence unused variable warnings.
+    Jacobian1.C[0].X[0] = Jacobian2.C[0].X[0];
+    Jacobian2.C[0].X[0] = Jacobian1.C[0].X[0];
 
     return 0;
 }

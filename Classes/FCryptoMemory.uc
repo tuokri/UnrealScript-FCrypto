@@ -176,6 +176,32 @@ static final function MemSet_SBytes64(
     }
 }
 
+static final function MemSet_UInt16_Static37(
+    out int S[37],
+    byte C,
+    int NumBytes,
+    optional int Offset = 0
+)
+{
+    local int IntIndex;
+    local int ByteIndex;
+    local int Shift;
+    local int Mask;
+
+    Shift = 8;
+    Mask = 0xff << Shift;
+    IntIndex = Offset;
+    for (ByteIndex = 0; ByteIndex < NumBytes; ++ByteIndex)
+    {
+        S[IntIndex] = (S[IntIndex] & ~Mask) | ((C & 0xff) << Shift);
+        // Shift = (Shift + 8) % 16;
+        Shift = (Shift + 8) & 15;
+        // IntIndex += ByteIndex % 2;
+        IntIndex += ByteIndex & 1;
+        Mask = 0xff << Shift;
+    }
+}
+
 // TODO: is this even needed?
 // // Specialized for FCryptoEC_Prime.Jacobian 2D arrays.
 // static final function MemCpy_Jacobian_Monty(
