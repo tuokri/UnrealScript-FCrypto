@@ -199,22 +199,24 @@ simulated event PreBeginPlay()
 {
     Utils = new (self) class'FCryptoUtils';
 
-    TestDelegatesToRun.Length = 7;
-    TestDelegatesToRun[0].TestDelegate = TestMemory;
-    TestDelegatesToRun[0].TestName = NameOf(TestMemory);
-    TestDelegatesToRun[1].TestDelegate = TestOperations;
-    TestDelegatesToRun[1].TestName = NameOf(TestOperations);
-    TestDelegatesToRun[2].TestDelegate = TestMath;
-    TestDelegatesToRun[2].TestName = NameOf(TestMath);
-    TestDelegatesToRun[3].TestDelegate = TestAesCt;
-    TestDelegatesToRun[3].TestName = NameOf(TestAesCt);
+    TestDelegatesToRun.Length = 8;
+    TestDelegatesToRun[0].TestDelegate = TestQWord;
+    TestDelegatesToRun[0].TestName = NameOf(TestQWord);
+    TestDelegatesToRun[1].TestDelegate = TestMemory;
+    TestDelegatesToRun[1].TestName = NameOf(TestMemory);
+    TestDelegatesToRun[2].TestDelegate = TestOperations;
+    TestDelegatesToRun[2].TestName = NameOf(TestOperations);
+    TestDelegatesToRun[3].TestDelegate = TestMath;
+    TestDelegatesToRun[3].TestName = NameOf(TestMath);
+    TestDelegatesToRun[4].TestDelegate = TestAesCt;
+    TestDelegatesToRun[4].TestName = NameOf(TestAesCt);
 
-    TestDelegatesToRun[4].TestDelegate = TestSpeed;
-    TestDelegatesToRun[4].TestName = NameOf(TestSpeed);
     TestDelegatesToRun[5].TestDelegate = TestSpeed;
     TestDelegatesToRun[5].TestName = NameOf(TestSpeed);
     TestDelegatesToRun[6].TestDelegate = TestSpeed;
     TestDelegatesToRun[6].TestName = NameOf(TestSpeed);
+    TestDelegatesToRun[7].TestDelegate = TestSpeed;
+    TestDelegatesToRun[7].TestName = NameOf(TestSpeed);
 
     super.PreBeginPlay();
 }
@@ -787,6 +789,41 @@ private final simulated function IntToBytes(
     Bytes[1] = (I >>> 16) & 0xFF;
     Bytes[2] = (I >>>  8) & 0xFF;
     Bytes[3] = (I       ) & 0xFF;
+}
+
+// TODO: mirror all the tests from Python QWord tests here!
+//       And perhaps add more UScript specific checks?
+private final simulated function int TestQWord()
+{
+    local int TestFailures;
+    local FCQWORD16 QW1;
+    local array<byte> QW1Bytes;
+    local array<byte> QW1BytesCorrect;
+
+    TestFailures = 0;
+
+    QW1.A = 0x0000; QW1.B = 0x1010; QW1.C = 0xffff; QW1.D = 0xffff;
+    class'FCryptoQWORD'.static.FCQWORD16_AddInt(QW1, 1000);
+    // TODO: need a macro or static function for convenience!
+    QW1Bytes[0] = (QW1.A >>> 8) & 0xff;
+    QW1Bytes[1] = (QW1.A      ) & 0xff;
+    QW1Bytes[2] = (QW1.B >>> 8) & 0xff;
+    QW1Bytes[3] = (QW1.B      ) & 0xff;
+    QW1Bytes[4] = (QW1.C >>> 8) & 0xff;
+    QW1Bytes[5] = (QW1.C      ) & 0xff;
+    QW1Bytes[6] = (QW1.D >>> 8) & 0xff;
+    QW1Bytes[7] = (QW1.D      ) & 0xff;
+    QW1BytesCorrect[0] = 0x00;
+    QW1BytesCorrect[1] = 0x00;
+    QW1BytesCorrect[2] = 0x10;
+    QW1BytesCorrect[3] = 0x11;
+    QW1BytesCorrect[4] = 0x00;
+    QW1BytesCorrect[5] = 0x00;
+    QW1BytesCorrect[6] = 0x03;
+    QW1BytesCorrect[7] = 0xe7;
+    TestFailures += BytesShouldBeEqual(QW1Bytes, QW1BytesCorrect, "QW1Bytes");
+
+    return TestFailures;
 }
 
 private final simulated function int TestMemory()
