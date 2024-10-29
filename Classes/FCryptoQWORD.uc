@@ -33,6 +33,19 @@ struct FCQWORD
     var int B; // Low.
 };
 
+// 64-bit unsigned integer simulated as four 16-bit signed words.
+struct FCQWORD16
+{
+    var int A; // High.
+    var int B;
+    var int C;
+    var int D; // Low.
+};
+
+// TODO: need conversion functions between FCQWORD <-> FCQWORD16!
+// TODO: need variants of all comparison functions also for FCQWORD16?
+// TODO: make FCQWORD_Mul with the help of FCQWORD16_Mul?
+
 // Return A > B.
 final static function bool IsGt(const out FCQWORD A, const out FCQWORD B)
 {
@@ -126,4 +139,54 @@ final static function bool IsLte_AsUInt32(int A, int B)
     Msb = Msb | (Msb >>> 16);
     Msb = Msb - (Msb >>>  1);
     return !bool((B & Msb) ^ Msb);
+}
+
+// Calculate QW *= Mul, return carry.
+final static function FCQWORD16_Mul(out FCQWORD16 QW, FCQWORD16 Mul)
+{
+    local FCQWORD16 Res;
+    local int Tmp;
+    local int Carry;
+    local int Carry_Hi16;
+
+    Tmp = QW.D * Mul.D;
+    Carry = (Tmp >>> 16) & 0xffff;
+    Res.D = Tmp & 0xffff;
+
+    Tmp = Carry + (QW.D * Mul.C) + (QW.C * Mul.D);
+    Carry = (Tmp >>> 16) & 0xffff;
+    Res.C = Tmp & 0xffff;
+
+    Tmp = Carry + (QW.D * Mul.B) + (QW.C * Mul.C) + (QW.B * Mul.D);
+    Carry = (Tmp >>> 16) & 0xffff;
+    Res.B = Tmp & 0xffff;
+
+    Tmp = Carry + (QW.D * Mul.A) + (QW.C * Mul.B) + (QW.B * Mul.C) + (QW.A * Mul.D);
+    Carry_Hi16 = ((QW.A * Mul.B) + (QW.B * Mul.A)) << 16;
+    Carry = Carry_Hi16 | (((Tmp >>> 16) & 0xffff) + ((QW.A * Mul.C) + (QW.B * Mul.B) + (QW.C * Mul.A)));
+    Res.A = Tmp & 0xffff;
+
+    QW = Res;
+    return Carry;
+}
+
+// Calculate QW += X, return carry.
+final static function int FCQWORD16_AddInt(out FCQWORD16 Qw, int X)
+{
+    local int Carry;
+
+    QW.D += X;
+
+    QW.C += (QW.D >>> 16) & 0xffff;
+    QW.D = QW.D & 0xffff;
+
+    QW.B += (QW.C >>> 16) & 0xffff;
+    QW.C = QW.C & 0xffff;
+
+    QW.A += (QW.B >>> 16) & 0xffff;
+    QW.B = QW.B & 0xffff;
+    Carry = (QW.A >>> 16) & 0xffff;
+    QW.A = QW.A & 0xffff;
+
+    return Carry;
 }
