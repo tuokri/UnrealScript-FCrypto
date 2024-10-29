@@ -142,7 +142,7 @@ final static function bool IsLte_AsUInt32(int A, int B)
 }
 
 // Calculate QW *= Mul, return carry.
-final static function FCQWORD16_Mul(out FCQWORD16 QW, FCQWORD16 Mul)
+final static function int FCQWORD16_Mul(out FCQWORD16 QW, FCQWORD16 Mul)
 {
     local FCQWORD16 Res;
     local int Tmp;
