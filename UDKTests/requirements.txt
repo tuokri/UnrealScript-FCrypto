@@ -1,6 +1,6 @@
 httpx==0.28.1
 loguru==0.7.3
-psutil==6.1.1
+psutil==7.0.0
 py7zr==0.22.0
 tqdm==4.67.1
 udk_configparser==1.1.1
