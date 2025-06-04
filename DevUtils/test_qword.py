@@ -76,7 +76,7 @@ def gt_uint32(a: int, b: int) -> bool:
     ltb = ltb | (ltb >> 8)
     ltb = ltb | (ltb >> 16)
 
-    return gtb & ~ltb
+    return bool(gtb & ~ltb)
 
 
 # FCryptoQWORD::IsLt_AsUInt32
@@ -90,7 +90,7 @@ def lt_uint32(a: int, b: int) -> bool:
     gtb = gtb | (gtb >> 8)
     gtb = gtb | (gtb >> 16)
 
-    return ltb & ~gtb
+    return bool(ltb & ~gtb)
 
 
 # FCryptoQWORD::FCQWORD16_AddInt without carry return.
@@ -133,6 +133,8 @@ def qword16_sub_int(qw: QWord16, x: int) -> QWord16:
     if qw.b < 0:
         qw.a -= 0x1
         qw.b += 0xf
+
+    # TODO: a missing step here?
 
     return qw
 
