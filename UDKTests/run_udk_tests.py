@@ -697,6 +697,20 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.warning("exiting by KeyboardInterrupt")
+
+        # TODO: we need to properly forward the signal to all
+        #       subprocesses and threads!
+
+        if BUILDING_EVENT:
+            BUILDING_EVENT.set()
+        if TESTING_EVENT:
+            TESTING_EVENT.set()
+        if POKER_EVENT:
+            POKER_EVENT.set()
+
+        raise
     except Exception as _e:
         logger.error("error running main: {}", _e)
 
