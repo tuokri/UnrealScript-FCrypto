@@ -698,7 +698,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as _e:
-        logger.error("error running man: {}", _e)
+        logger.error("error running main: {}", _e)
 
         if BUILDING_EVENT:
             BUILDING_EVENT.set()
