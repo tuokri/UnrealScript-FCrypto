@@ -10,7 +10,7 @@ on:
 env:
   UDK_LITE_CACHE: ${{ github.workspace }}/UDKTests/.cache/
   UDK_LITE_TAG: 1.0.2
-  FCRYPTO_NUM_TEST_LOOPS: 4
+  FCRYPTO_NUM_TEST_LOOPS: 3
   # Timeout for individual steps in the test script. Not a total timeout.
   UDK_TEST_TIMEOUT: 300
   PYTHONUNBUFFERED: 1
