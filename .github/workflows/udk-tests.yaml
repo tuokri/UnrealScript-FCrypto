@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Check out FCrypto repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
 
@@ -43,7 +43,7 @@ jobs:
           restore-keys: windows-latest-cache-udk-lite-release-${{ env.UDK_LITE_TAG }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -51,9 +51,9 @@ jobs:
             ${{ github.workspace }}/UDKTests/requirements.txt
             ${{ github.workspace }}/DevUtils/requirements.txt
 
-      # - run: python -m pip install --upgrade pip
-      # - run: pip install -r ${{ github.workspace }}/UDKTests/requirements.txt
-      # - run: pip install -r ${{ github.workspace }}/DevUtils/requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r ${{ github.workspace }}/UDKTests/requirements.txt
+      - run: pip install -r ${{ github.workspace }}/DevUtils/requirements.txt
 
       - run: python --version
 
@@ -93,7 +93,7 @@ jobs:
         run: python ${{ github.workspace }}/UDKTests/run_udk_tests.py --add-fw-rules
 
       - name: Archive UDK build and test logs and artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: udk-logs-${{ matrix.os }}
