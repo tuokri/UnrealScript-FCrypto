@@ -107,6 +107,8 @@ for non-critical data.
 
 #### Development TODOs
 
+- Consider using mouse and keyboard inputs for entropy.
+
 ##### Release tooling
 
 For actual releases we'll want a versioned script package.
