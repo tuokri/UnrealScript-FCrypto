@@ -48,12 +48,14 @@ logger.add(
     sys.stdout,
     format=_log_format,
     level="DEBUG",
+    enqueue=True,
 )
 logger.add(
     "gmp_server.log",
     format=_log_format,
     rotation="50 MB",
     level="DEBUG",
+    enqueue=True,
 )
 
 
