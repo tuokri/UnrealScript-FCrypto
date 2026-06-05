@@ -63,13 +63,12 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
     id_regex = re.compile(r"T(\w+)\s.*")
     cmd_regex = re.compile(r"\[(.*?)]")
 
-    def __init__(self, request, client_address, server):
-        super().__init__(request, client_address, server)
+    def setup(self):
+        super().setup()
         self.data = b""
-
         self.response_queue = queue.Queue()
-        writer_thread = threading.Thread(target=self._writer, daemon=True)
-        writer_thread.start()
+        self.writer_thread = threading.Thread(target=self._writer, daemon=True)
+        self.writer_thread.start()
 
     def handle(self):
         self.rng = gmpy2.random_state(int(time.time()))
@@ -97,8 +96,8 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         logger.info("done")
 
         self.response_queue.put(None)
-        writer_thread.join()
-        
+        self.writer_thread.join()
+
         sys.stdout.flush()
 
     def calculate(self, cmd_data: str) -> bytes:
