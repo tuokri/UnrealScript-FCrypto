@@ -62,13 +62,18 @@ logger.add(
 class GMPTCPHandler(socketserver.StreamRequestHandler):
     id_regex = re.compile(r"T(\w+)\s.*")
     cmd_regex = re.compile(r"\[(.*?)]")
-    rng = gmpy2.random_state(int(time.time()))
 
     def __init__(self, request, client_address, server):
         super().__init__(request, client_address, server)
         self.data = b""
 
+        self.response_queue = queue.Queue()
+        writer_thread = threading.Thread(target=self._writer, daemon=True)
+        writer_thread.start()
+
     def handle(self):
+        self.rng = gmpy2.random_state(int(time.time()))
+        
         while True:
             try:
                 self.data = self.rfile.readline().strip()
@@ -81,17 +86,22 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                 break
 
             try:
-                self.calculate(cmd_data)
-                sys.stdout.flush()
+                out = self.calculate(cmd_data)
+                if out:
+                    self.response_queue.put(out)
             except Exception as e:
                 self.wfile.write(bytes("SERVER_ERROR\n", "utf-8"))
                 logger.error(e)
                 logger.exception(e)
 
         logger.info("done")
+
+        self.response_queue.put(None)
+        writer_thread.join()
+        
         sys.stdout.flush()
 
-    def calculate(self, cmd_data: str):
+    def calculate(self, cmd_data: str) -> bytes:
         if match := self.id_regex.match(cmd_data):
             t_id = match.group(1)
         else:
@@ -170,15 +180,22 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
             encoding="utf-8",
         )
         logger.info("out: {}", out)
-        self.wfile.write(out)
+        return out
 
-        # for name, value in mpz_vars.items():
-        #     self.wfile.write(
-        #         bytes(
-        #             f"{t_id} {name} {value.digits(16)}\n",
-        #             "utf-8",
-        #         )
-        #     )
+    def _writer(self):
+        while True:
+            out_data = self.response_queue.get()
+
+            if out_data is None:
+                break
+
+            try:
+                self.wfile.write(out_data)
+                sys.stdout.flush()
+            except Exception as e:
+                logger.error("_writer error: {}", e)
+                logger.exception(e)
+                break
 
 
 # TODO: https://rednafi.com/python/multithreaded_socket_server_signal_handling/
