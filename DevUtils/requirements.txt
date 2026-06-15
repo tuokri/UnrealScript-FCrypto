@@ -1,4 +1,4 @@
-gmpy2==2.2.1
+gmpy2==2.3.0
 loguru==0.7.3
 numba==0.61.0
 numpy==2.0.2
