@@ -28,6 +28,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -321,7 +322,8 @@ async def run_udk_build(
     ok = building_event.wait(timeout=UDK_TEST_TIMEOUT)
 
     await (await asyncio.create_subprocess_exec(
-        *["taskkill", "/pid", str(proc.pid)]
+        *["taskkill", "/pid", str(proc.pid)],
+        stderr=subprocess.DEVNULL,
     )).wait()
 
     if not ok:
@@ -379,7 +381,8 @@ async def run_udk_server(
     ok = testing_event.wait(timeout=UDK_TEST_TIMEOUT)
 
     await (await asyncio.create_subprocess_exec(
-        *["taskkill", "/pid", str(test_proc.pid)]
+        *["taskkill", "/pid", str(test_proc.pid)],
+        stderr=subprocess.DEVNULL,
     )).wait()
 
     if not ok:
