@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2023-2024 Tuomo Kriikkula
+# Copyright (c) 2023-2026 Tuomo Kriikkula
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ from dataclasses import field
 from pathlib import Path
 from typing import IO
 
-import httpx
+import httpx2
 import psutil
 import py7zr
 import tqdm
@@ -220,7 +220,7 @@ def load_cache(path: Path) -> Cache:
 def download_file(url: str, out_file: Path, progress_bar: bool = True):
     logger.info("downloading: '{}'", url)
     with out_file.open("wb") as f:
-        with httpx.stream(
+        with httpx2.stream(
                 "GET",
                 url,
                 timeout=120.0,
