@@ -2,4 +2,4 @@ gmpy2==2.3.0
 loguru==0.7.3
 numba==0.65.1
 numpy==2.4.6
-pytest==8.4.1
+pytest==9.0.3
