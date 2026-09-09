@@ -109,6 +109,12 @@ for non-critical data.
 
 - Consider using mouse and keyboard inputs for entropy.
 
+- Combine multiple requirements.txt files into a single cohesive
+  Python package and use uv for it.
+  * Perhaps consider a top-level `run_tests` script or a `testing` package,
+    that handles installing dependencies from both sub-packages automatically
+    and executes both the pytest tests and UDK end-to-end tests.
+
 ##### Release tooling
 
 For actual releases we'll want a versioned script package.
