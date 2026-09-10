@@ -54,6 +54,11 @@ final static function bool IsGt(const out FCQWORD A, const out FCQWORD B)
         return True;
     }
 
+    if (IsLt_AsUInt32(A.A, B.A))
+    {
+        return False;
+    }
+
     return IsGt_AsUInt32(A.B, B.B);
 }
 
@@ -63,6 +68,11 @@ final static function bool IsGt_NonConst(FCQWORD A, FCQWORD B)
     if (IsGt_AsUInt32(A.A, B.A))
     {
         return True;
+    }
+
+    if (IsLt_AsUInt32(A.A, B.A))
+    {
+        return False;
     }
 
     return IsGt_AsUInt32(A.B, B.B);
@@ -108,8 +118,8 @@ final static function bool IsLt_AsUInt32(int A, int B)
     Gtb = Gtb | (Gtb >>>  8);
     Gtb = Gtb | (Gtb >>> 16);
 
-    // A >  B --> non-zero. // TODO: does this work?
-    // A <= B --> zero.     // TODO: does this work?
+    // A <  B --> non-zero.
+    // A >= B --> zero.
     return bool(Ltb & ~Gtb);
 }
 
