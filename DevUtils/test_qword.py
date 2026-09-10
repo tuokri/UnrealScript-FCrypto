@@ -57,11 +57,15 @@ class QWord:
     def __gt__(self, other: "QWord") -> bool:
         if gt_uint32(self.a, other.a):
             return True
+        if lt_uint32(self.a, other.a):
+            return False
         return gt_uint32(self.b, other.b)
 
     def __lt__(self, other: "QWord") -> bool:
         if lt_uint32(self.a, other.a):
             return True
+        if gt_uint32(self.a, other.a):
+            return False
         return lt_uint32(self.b, other.b)
 
 
@@ -91,6 +95,30 @@ def lt_uint32(a: int, b: int) -> bool:
     gtb = gtb | (gtb >> 16)
 
     return bool(ltb & ~gtb)
+
+
+# FCryptoQWORD::IsGte_AsUInt32
+def gte_uint32(a: int, b: int) -> bool:
+    msb = a ^ b
+    msb = msb | (msb >> 1)
+    msb = msb | (msb >> 2)
+    msb = msb | (msb >> 4)
+    msb = msb | (msb >> 8)
+    msb = msb | (msb >> 16)
+    msb = msb - (msb >> 1)
+    return not bool((a & msb) ^ msb)
+
+
+# FCryptoQWORD::IsLte_AsUInt32
+def lte_uint32(a: int, b: int) -> bool:
+    msb = a ^ b
+    msb = msb | (msb >> 1)
+    msb = msb | (msb >> 2)
+    msb = msb | (msb >> 4)
+    msb = msb | (msb >> 8)
+    msb = msb | (msb >> 16)
+    msb = msb - (msb >> 1)
+    return not bool((b & msb) ^ msb)
 
 
 # FCryptoQWORD::FCQWORD16_AddInt without carry return.
@@ -462,3 +490,45 @@ def test_qword_operators():
     assert not (qw2 < qw2)
     assert qw2 < qw3
     assert qw3 < qw4
+
+    # Verify that comparisons prioritize the high word over the low word.
+    a = QWord(0x0000_0000, 0xffff_ffff)
+    b = QWord(0x0000_0001, 0x0000_0000)
+    assert not (a > b)
+    assert a < b
+    assert not (b < a)
+    assert b > a
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (0x7fffffff, 0x80000000),
+        (0x80000000, 0x7fffffff),
+        (0xffffffff, 0),
+        (0, 0xffffffff),
+    ],
+)
+def test_uint32_comparisons(a: int, b: int):
+    assert gt_uint32(a, b) == (a > b)
+    assert lt_uint32(a, b) == (a < b)
+    assert gte_uint32(a, b) == (a >= b)
+    assert lte_uint32(a, b) == (a <= b)
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        (QWord(0x00000000, 0xffffffff), QWord(0x00000001, 0x00000000)),
+        (QWord(0x00000001, 0x00000000), QWord(0x00000000, 0xffffffff)),
+        (QWord(0x00000000, 0x00000000), QWord(0x00000000, 0xffffffff)),
+        (QWord(0xffffffff, 0xffffffff), QWord(0xffffffff, 0xffffffff)),
+        (QWord(0x80000000, 0x00000000), QWord(0x7fffffff, 0xffffffff)),
+    ],
+)
+def test_qword_comparisons(a: QWord, b: QWord):
+    assert (a > b) == (a.value > b.value)
+    assert (a < b) == (a.value < b.value)
