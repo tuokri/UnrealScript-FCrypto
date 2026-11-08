@@ -115,6 +115,10 @@ for non-critical data.
     that handles installing dependencies from both sub-packages automatically
     and executes both the pytest tests and UDK end-to-end tests.
 
+- Branchless implementations for QWORD `IsGt` and `IsLt`.
+
+- Mirror Python side QWORD test suite in UScript.
+
 ##### Release tooling
 
 For actual releases we'll want a versioned script package.
