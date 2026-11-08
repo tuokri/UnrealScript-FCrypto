@@ -39,15 +39,20 @@ def test_remove_old_extracted_removes_files_and_only_empty_directories(tmp_path)
     assert (non_empty_directory / "keep.txt").exists()
 
 
-@pytest.mark.parametrize("unsafe_path", ["../outside.txt", "C:/outside.txt"])
+@pytest.mark.parametrize("path_kind", ["traversal", "absolute"])
 def test_remove_old_extracted_rejects_unsafe_manifest_before_deleting(
     tmp_path,
-    unsafe_path,
+    path_kind,
 ):
     root = tmp_path / "udk"
     root.mkdir()
     safe_file = root / "safe.txt"
     safe_file.write_text("keep until full manifest is validated")
+    unsafe_path = (
+        "../outside.txt"
+        if path_kind == "traversal"
+        else str(tmp_path / "outside.txt")
+    )
     cache = Cache(pkg_archive_extracted_files=[str(safe_file), unsafe_path])
 
     with pytest.raises(ValueError):
@@ -76,10 +81,15 @@ def test_remove_old_extracted_unlinks_symlink_without_touching_target(tmp_path):
     assert target_file.exists()
 
 
-@pytest.mark.parametrize("member", ["../outside.txt", "C:/outside.txt"])
-def test_resolve_archive_member_rejects_paths_outside_root(tmp_path, member):
+@pytest.mark.parametrize("path_kind", ["traversal", "absolute"])
+def test_resolve_archive_member_rejects_paths_outside_root(tmp_path, path_kind):
     root = tmp_path / "udk"
     root.mkdir()
+    member = (
+        "../outside.txt"
+        if path_kind == "traversal"
+        else str(tmp_path / "outside.txt")
+    )
 
     with pytest.raises(ValueError):
         resolve_archive_member(member, root)
