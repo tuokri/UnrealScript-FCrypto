@@ -35,7 +35,7 @@ jobs:
           submodules: true
 
       - name: Cache UDK-Lite release archive
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-udk-lite-release
         with:
           path: |
@@ -63,7 +63,7 @@ jobs:
       - run: python --version
 
       - name: Cache Windows redistributables
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-win-redist
         with:
           path: |
@@ -86,7 +86,7 @@ jobs:
 
       - name: Save Windows redistributables
         if: steps.cache-win-redist.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             C:\Temp\VcRedist
