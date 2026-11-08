@@ -1,0 +1,13 @@
+extend-exclude = ["tools"]
+
+[lint]
+extend-select = ["I"]
+ignore = ["BLE001"]
+
+[lint.isort]
+force-single-line = true
+
+known-first-party = [
+    "DevUtils",
+    "UDKTests",
+]
