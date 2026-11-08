@@ -200,3 +200,60 @@ final static function int FCQWORD16_AddInt(out FCQWORD16 Qw, int X)
 
     return Carry;
 }
+
+// Calculate QW -= X, return borrow.
+final static function int FCQWORD16_SubInt(out FCQWORD16 Qw, int X)
+{
+    local int Borrow;
+    local int Tmp;
+
+    Tmp = Qw.D - (X & 0xffff);
+    if (Tmp < 0)
+    {
+        Tmp += 0x10000;
+        Borrow = 1;
+    }
+    else
+    {
+        Borrow = 0;
+    }
+    Qw.D = Tmp;
+
+    Tmp = Qw.C - ((X >>> 16) & 0xffff) - Borrow;
+    if (Tmp < 0)
+    {
+        Tmp += 0x10000;
+        Borrow = 1;
+    }
+    else
+    {
+        Borrow = 0;
+    }
+    Qw.C = Tmp;
+
+    Tmp = Qw.B - Borrow;
+    if (Tmp < 0)
+    {
+        Tmp += 0x10000;
+        Borrow = 1;
+    }
+    else
+    {
+        Borrow = 0;
+    }
+    Qw.B = Tmp;
+
+    Tmp = Qw.A - Borrow;
+    if (Tmp < 0)
+    {
+        Tmp += 0x10000;
+        Borrow = 1;
+    }
+    else
+    {
+        Borrow = 0;
+    }
+    Qw.A = Tmp;
+
+    return Borrow;
+}

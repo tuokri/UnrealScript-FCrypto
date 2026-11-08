@@ -237,6 +237,7 @@ simulated event Tick(float DeltaTime)
 
 private final simulated function ExitTests()
 {
+    `fclog("stopping");
     ConsoleCommand("QUIT", True);
 }
 
@@ -248,7 +249,9 @@ private final simulated function RunNextTest()
     local name NextTestName;
 
     `fclog("CurrentTestDelegateIndex=" $ CurrentTestDelegateIndex
-        @ "TestDelegatesToRun.Length=" $ TestDelegatesToRun.Length);
+        @ "TestDelegatesToRun.Length=" $ TestDelegatesToRun.Length
+        @ "CurrentTestIteration=" $ CurrentTestIteration
+    );
 
     if (CurrentTestIteration >= NumTestLoops)
     {
@@ -796,6 +799,7 @@ private final simulated function IntToBytes(
 private final simulated function int TestQWord()
 {
     local int TestFailures;
+    local int Borrow;
     local FCQWORD16 QW1;
     local array<byte> QW1Bytes;
     local array<byte> QW1BytesCorrect;
@@ -822,6 +826,42 @@ private final simulated function int TestQWord()
     QW1BytesCorrect[6] = 0x03;
     QW1BytesCorrect[7] = 0xe7;
     TestFailures += BytesShouldBeEqual(QW1Bytes, QW1BytesCorrect, "QW1Bytes");
+
+    // Borrow from D into C.
+    QW1.A = 0x0000; QW1.B = 0x0000; QW1.C = 0xffff; QW1.D = 0x0001;
+    Borrow = class'FCryptoQWORD'.static.FCQWORD16_SubInt(QW1, 0x0002);
+    TestFailures += IntsShouldBeEqual(QW1.A, 0x0000, "SubInt D->C A");
+    TestFailures += IntsShouldBeEqual(QW1.B, 0x0000, "SubInt D->C B");
+    TestFailures += IntsShouldBeEqual(QW1.C, 0xfffe, "SubInt D->C C");
+    TestFailures += IntsShouldBeEqual(QW1.D, 0xffff, "SubInt D->C D");
+    TestFailures += IntsShouldBeEqual(Borrow, 0, "SubInt D->C borrow");
+
+    // Borrow propagates through D, C, and B into A.
+    QW1.A = 0x0001; QW1.B = 0x0000; QW1.C = 0x0000; QW1.D = 0x0000;
+    Borrow = class'FCryptoQWORD'.static.FCQWORD16_SubInt(QW1, 0x0001);
+    TestFailures += IntsShouldBeEqual(QW1.A, 0x0000, "SubInt full chain A");
+    TestFailures += IntsShouldBeEqual(QW1.B, 0xffff, "SubInt full chain B");
+    TestFailures += IntsShouldBeEqual(QW1.C, 0xffff, "SubInt full chain C");
+    TestFailures += IntsShouldBeEqual(QW1.D, 0xffff, "SubInt full chain D");
+    TestFailures += IntsShouldBeEqual(Borrow, 0, "SubInt full chain borrow");
+
+    // Subtract the maximum unsigned 32-bit value.
+    QW1.A = 0xffff; QW1.B = 0xffff; QW1.C = 0x0000; QW1.D = 0x0000;
+    Borrow = class'FCryptoQWORD'.static.FCQWORD16_SubInt(QW1, 0xffffffff);
+    TestFailures += IntsShouldBeEqual(QW1.A, 0xffff, "SubInt uint32 max A");
+    TestFailures += IntsShouldBeEqual(QW1.B, 0xfffe, "SubInt uint32 max B");
+    TestFailures += IntsShouldBeEqual(QW1.C, 0x0000, "SubInt uint32 max C");
+    TestFailures += IntsShouldBeEqual(QW1.D, 0x0001, "SubInt uint32 max D");
+    TestFailures += IntsShouldBeEqual(Borrow, 0, "SubInt uint32 max borrow");
+
+    // Underflow wraps the QWORD and reports a final borrow.
+    QW1.A = 0x0000; QW1.B = 0x0000; QW1.C = 0x0000; QW1.D = 0x0000;
+    Borrow = class'FCryptoQWORD'.static.FCQWORD16_SubInt(QW1, 0x0001);
+    TestFailures += IntsShouldBeEqual(QW1.A, 0xffff, "SubInt underflow A");
+    TestFailures += IntsShouldBeEqual(QW1.B, 0xffff, "SubInt underflow B");
+    TestFailures += IntsShouldBeEqual(QW1.C, 0xffff, "SubInt underflow C");
+    TestFailures += IntsShouldBeEqual(QW1.D, 0xffff, "SubInt underflow D");
+    TestFailures += IntsShouldBeEqual(Borrow, 1, "SubInt underflow borrow");
 
     return TestFailures;
 }
@@ -1261,6 +1301,8 @@ private final simulated function int TestMath()
     KArr.Length = 4;
     for (K = 2; K <= 128; ++K)
     {
+        // `fclog("iteration: K=" $ K);
+
         for (I = 0; I < 10; ++I)
         {
             if (!bUseRandomPrimes)
