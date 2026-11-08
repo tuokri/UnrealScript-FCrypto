@@ -98,7 +98,7 @@ jobs:
         run: python ${{ github.workspace }}/UDKTests/run_udk_tests.py --add-fw-rules
 
       - name: Archive UDK build and test logs and artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: udk-logs-${{ matrix.os }}
