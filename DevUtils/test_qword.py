@@ -138,31 +138,37 @@ def qword16_add_int(qw: QWord16, x: int) -> QWord16:
     return qw
 
 
-# TODO: this is kinda shitty, but does the job.
-# TODO: actually, it doesn't work correctly right now!
 def qword16_sub_int(qw: QWord16, x: int) -> QWord16:
-    borrow = 0x0
+    # Treat x as an unsigned 32-bit bit pattern, matching UnrealScript int.
+    x &= 0xffff_ffff
+
+    borrow = 0
+
     tmp = qw.d - (x & 0xffff)
     if tmp < 0:
-        qw.c -= 0x1
-        borrow = 0xf
+        tmp += 0x1_0000
+        borrow = 1
+    qw.d = tmp
+
+    tmp = qw.c - ((x >> 16) & 0xffff) - borrow
+    if tmp < 0:
+        tmp += 0x1_0000
+        borrow = 1
     else:
-        borrow = 0x0
-    qw.d = (qw.d + borrow) - (x & 0xffff)
+        borrow = 0
+    qw.c = tmp
 
-    tmp = qw.c - ((x >> 16) & 0xffff)
-    if (tmp < 0):
-        qw.b -= 0x1
-        borrow = 0xf
+    tmp = qw.b - borrow
+    if tmp < 0:
+        tmp += 0x1_0000
+        borrow = 1
     else:
-        borrow = 0x0
-    qw.c = (qw.c + borrow) - ((x >> 16) & 0xffff)
+        borrow = 0
+    qw.b = tmp
 
-    if qw.b < 0:
-        qw.a -= 0x1
-        qw.b += 0xf
-
-    # TODO: a missing step here?
+    # The most significant limb wraps modulo 2^16; any final borrow is
+    # discarded, making the complete result wrap modulo 2^64.
+    qw.a = (qw.a - borrow) & 0xffff
 
     return qw
 
@@ -247,22 +253,40 @@ def test_qword16_sub_math():
     qw1 = QWord16(0x0000, 0x0000, 0xFFFF, 0x0001)
     qw2 = QWord16(0x0000, 0x0000, 0x0002, 0x0222)
     qw3 = QWord16(0xFFFF, 0xFFFF, 0x0000, 0x0000)
-    sub1 = 0x0002
-    sub2 = 0x0222
-    sub3 = 0xFFFF_FFFF
 
-    result = qword16_sub_int(qw1, sub1)
-    assert result.value == 0x0000_0000_FFFE_000E, f"result.value={
-        result.value:_x}"
+    result = qword16_sub_int(qw1, 0x0002)
+    assert result.value == 0x0000_0000_FFFE_FFFF
 
-    result = qword16_sub_int(qw2, sub2)
-    assert result.value == 0x0000_0000_0002_0000, f"result.value={
-        result.value:_x}"
+    result = qword16_sub_int(qw2, 0x0222)
+    assert result.value == 0x0000_0000_0002_0000
 
-    # TODO: enable this when the algorithm is fixed!
-    # result = qword16_sub_int(qw3, sub3)
-    # assert result.value == 0xffff_fffe_0000_0001, f"result.value={
-    #     result.value:_x}"
+    # Borrow propagates through c and b into a.
+    result = qword16_sub_int(qw3, 0xFFFF_FFFF)
+    assert result.value == 0xFFFF_FFFE_0000_0001
+
+
+@pytest.mark.parametrize(
+    ("limbs", "x"),
+    [
+        ((0x0000, 0x0000, 0xFFFF, 0x0001), 0x0002),
+        ((0x0000, 0x0000, 0x0002, 0x0222), 0x0222),
+        ((0xFFFF, 0xFFFF, 0x0000, 0x0000), 0xFFFF_FFFF),
+        ((0x0000, 0x0000, 0x0001, 0x0000), 0x0001_0000),
+        ((0x0000, 0x0000, 0x0000, 0x0000), 0x0000_0001),
+        ((0x1234, 0xABCD, 0x9876, 0x5432), 0xFFFF_FFFF),
+        ((0x0000, 0x0000, 0x0000, 0x0000), 0x0000_0000),
+    ],
+)
+def test_qword16_sub_matches_integer_math(limbs: tuple[int, int, int, int], x: int):
+    qw = QWord16(*limbs)
+    original_value = qw.value
+    expected_value = (original_value - x) & 0xffff_ffff_ffff_ffff
+
+    # Compare ordinary integer subtraction with the 16-bit-limb operation.
+    result = qword16_sub_int(qw, x)
+
+    assert result.value == expected_value
+    assert all(0 <= limb <= 0xffff for limb in (result.a, result.b, result.c, result.d))
 
 
 def test_qword16_mul_math():
