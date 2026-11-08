@@ -28,14 +28,12 @@ calculations, and returns the results back to the client.
 """
 
 import argparse
+import queue
 import re
 import socketserver
 import sys
 import threading
 import time
-import queue
-from typing import Dict
-from typing import List
 
 import gmpy2
 from loguru import logger
@@ -74,7 +72,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
 
     def handle(self):
         self.rng = gmpy2.random_state(int(time.time()))
-        
+
         while True:
             try:
                 self.data = self.rfile.readline().strip()
@@ -108,11 +106,13 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
         else:
             raise ValueError("invalid t_id")
 
-        cmds: List[str] = self.cmd_regex.findall(cmd_data)
+        logger.info("handling transaction: {}", t_id)
+
+        cmds: list[str] = self.cmd_regex.findall(cmd_data)
         logger.info("cmds: {}", cmds)
 
-        mpz_vars: Dict[str, gmpy2.mpz] = {}
-        mpz_ops: List[List[str]] = []
+        mpz_vars: dict[str, gmpy2.mpz] = {}
+        mpz_ops: list[list[str]] = []
 
         for cmd in cmds:
             parts = cmd.split(" ")
@@ -158,14 +158,14 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
                     logger.info("\t{} = {} (NO OPERATION)", dst, op[2])
                 case "rand_prime":
                     while True:
-                        x = gmpy2.mpz_urandomb(self.rng, a - 1)
+                        x = gmpy2.mpz_urandomb(self.rng, int(a) - 1)
                         x = x.bit_set(0)
-                        x = x.bit_set(a - 1)
+                        x = x.bit_set(int(a) - 1)
                         if x.is_prime(50):
-                            x -= 1
+                            x -= gmpy2.mpz(1)
                             if x.is_divisible(65537):
                                 continue
-                            x += 1
+                            x += gmpy2.mpz(1)
                             mpz_vars[dst] = x
                             break
                     # print(f"\t{dst} = rand_prime({a}) ({mpz_vars[dst]})")
@@ -202,6 +202,7 @@ class GMPTCPHandler(socketserver.StreamRequestHandler):
 # TODO: https://rednafi.com/python/multithreaded_socket_server_signal_handling/
 class TCPServer(socketserver.TCPServer):
     allow_reuse_address = True
+    # request_queue_size = 100000
     # block_on_close = False
 
 
@@ -217,6 +218,7 @@ def main():
     HOST = args.host
 
     with TCPServer((HOST, PORT), GMPTCPHandler) as server:
+        logger.info("{} running at {}:{}", server, HOST, PORT)
         server.serve_forever()
 
 
