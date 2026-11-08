@@ -28,7 +28,6 @@ syntax for use in DefaultProperties blocks.
 
 import itertools
 from pathlib import Path
-from typing import List
 
 
 def strip_leading_zeros(word: str) -> str:
@@ -50,7 +49,7 @@ def strip_leading_zeros(word: str) -> str:
     return " ".join(words)
 
 
-def split_words(words: List[str]) -> str:
+def split_words(words: list[str]) -> str:
     """Split 2-byte words into 1-byte words.
     'FFFF AAAA' -> 'FF FF AA AA'
     """
