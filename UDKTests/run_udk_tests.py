@@ -22,33 +22,29 @@
 
 import argparse
 import asyncio
-import enum
 import glob
-import json
 import os
-import re
 import shutil
 import subprocess
 import sys
-import threading
-import time
-from dataclasses import asdict
-from dataclasses import dataclass
-from dataclasses import field
 from pathlib import Path
-from typing import IO
 
+import defaults
 import httpx2
 import psutil
 import py7zr
 import tqdm
-import unicodedata
-import watchdog.events
-import watchdog.observers
+from cache import Cache
+from cache import already_extracted
+from cache import load_cache
+from cache import remove_old_extracted
+from cache import resolve_archive_member
+from cache import write_cache
+from hachiko import AIOWatchdog
+from log_watcher import LogWatcher
+from log_watcher import State
 from loguru import logger
 from udk_configparser import UDKConfigParser
-
-import defaults
 
 # TODO: leverage pytest?
 # TODO: reduce log spam? More verbose logging to a file,
@@ -76,130 +72,6 @@ CACHE_DIR = SCRIPT_DIR / ".cache/"
 UDK_FW_SCRIPT_PATH = SCRIPT_DIR / "allow_udk_fw.ps1"
 
 UDK_TEST_TIMEOUT = defaults.UDK_TEST_TIMEOUT
-
-LOG_RE = re.compile(r"^\[[\d.]+]\s(\w+):(.*)$")
-ARRAY_OOB_ACCESS_RE = re.compile(r"^.*ScriptWarning:\sAccessed\sarray\s'\w+'\sout\sof\sbounds\s\([\d/]+\)")
-
-BUILDING_EVENT: threading.Event | None = None
-TESTING_EVENT: threading.Event | None = None
-POKER_EVENT: threading.Event | None = None
-
-FCRYPTO_GMP_SERVER_PROC: asyncio.subprocess.Process | None = None
-
-
-class State(enum.StrEnum):
-    NONE = enum.auto()
-    BUILDING = enum.auto()
-    TESTING = enum.auto()
-
-
-class LogWatcher(watchdog.events.FileSystemEventHandler):
-    def __init__(
-            self,
-            building_event: threading.Event,
-            testing_event: threading.Event,
-            log_file: Path,
-    ):
-        self._building_event = building_event
-        self._testing_event = testing_event
-        self._log_file = log_file
-        self._log_filename = log_file.name
-        self._fh: IO | None = None
-        self._pos = 0
-        self._state = State.NONE
-        self._warnings: list[str] = []
-        self._errors: list[str] = []
-
-    @property
-    def warnings(self) -> list[str]:
-        return self._warnings
-
-    @property
-    def errors(self) -> list[str]:
-        return self._errors
-
-    @property
-    def state(self) -> State:
-        return self._state
-
-    @state.setter
-    def state(self, state: State):
-        logger.info("setting state: {}", state)
-        self._state = state
-        self._pos = 0
-
-    def on_any_event(self, event: watchdog.events.FileSystemEvent):
-        if Path(event.src_path).name == self._log_filename:
-            logger.info("fs event: {} {}", event.event_type, event.src_path)
-            self._fh = open(self._log_file, errors="replace", encoding="utf-8")
-
-    # TODO: better state handling, this is a mess ATM.
-    def on_modified(self, event: watchdog.events.FileSystemEvent):
-        path = Path(event.src_path)
-        if path.name == self._log_filename:
-            if not self._fh:
-                raise RuntimeError("no log file handle")
-
-            size = self._log_file.stat().st_size
-            if size == 0:
-                logger.info("log file cleared")
-                self._pos = 0
-                return
-
-            self._fh.seek(self._pos)
-
-            log_end = False
-            # TODO: detect partial lines. Just read the entire
-            #   file again in the end to get fully intact data?
-            #   Or is this unnecessary due to using -FORCELOGFLUSH?
-            while line := self._fh.readline():
-                self._pos = self._fh.tell()
-
-                if match := LOG_RE.match(line):
-                    if match.group(1).lower() == "error":
-                        if match.group(2):
-                            self._errors.append(line)
-                    elif "##ERROR##" in match.group(2):
-                        self._errors.append(line)
-                    elif ARRAY_OOB_ACCESS_RE.match(line):
-                        self._errors.append(line)
-                    elif match.group(1).lower() == "warning":
-                        if match.group(2):
-                            self._warnings.append(line)
-
-                if os.getenv("GITHUB_ACTIONS"):
-                    line = unicodedata.normalize("NFKD", line)
-                logger.info(line.strip())
-
-                if self._state == State.BUILDING:
-                    if "Log file closed" in line:
-                        log_end = True
-                elif self._state == State.TESTING:
-                    if "Exit: Exiting" in line:
-                        log_end = True
-
-            if log_end:
-                logger.info("setting stop event")
-                if self._state == State.BUILDING:
-                    self._building_event.set()
-                elif self._state == State.TESTING:
-                    self._testing_event.set()
-
-    def __del__(self):
-        if self._fh:
-            try:
-                self._fh.close()
-            except OSError:
-                pass
-
-
-@dataclass
-class Cache:
-    udk_lite_tag: str = ""
-    pkg_archive: str = ""
-    pkg_archive_extracted_files: list[str] = field(default_factory=list)
-
-
 def resolve_script_path(path: str) -> Path:
     p = Path(path)
     if not p.is_absolute():
@@ -207,86 +79,31 @@ def resolve_script_path(path: str) -> Path:
     return p.resolve()
 
 
-def write_cache(file: Path, cache: Cache):
-    logger.info("writing cache file: '{}'", file)
-    file.write_text(json.dumps(asdict(cache), indent=2))
-
-
-def load_cache(path: Path) -> Cache:
-    with path.open() as f:
-        cache = json.load(f)
-    return Cache(**cache)
-
-
 def download_file(url: str, out_file: Path, progress_bar: bool = True):
     logger.info("downloading: '{}'", url)
-    with out_file.open("wb") as f:
-        with httpx2.stream(
-                "GET",
-                url,
-                timeout=120.0,
-                follow_redirects=True) as resp:
-            resp.raise_for_status()
-            total = int(resp.headers["Content-Length"])
+    with out_file.open("wb") as f, httpx2.stream(
+            "GET",
+            url,
+            timeout=120.0,
+            follow_redirects=True) as resp:
+        resp.raise_for_status()
+        total = int(resp.headers["Content-Length"])
 
-            # TODO: refactor this.
-            if progress_bar:
-                with tqdm.tqdm(total=total, unit_scale=True, unit_divisor=1024,
-                               unit="B") as progress:
-                    num_bytes_downloaded = resp.num_bytes_downloaded
-                    for data in resp.iter_bytes(chunk_size=4096):
-                        f.write(data)
-                        progress.update(resp.num_bytes_downloaded - num_bytes_downloaded)
-                        num_bytes_downloaded = resp.num_bytes_downloaded
-
-            else:
+        # TODO: refactor this.
+        if progress_bar:
+            with tqdm.tqdm(total=total, unit_scale=True, unit_divisor=1024,
+                           unit="B") as progress:
+                num_bytes_downloaded = resp.num_bytes_downloaded
                 for data in resp.iter_bytes(chunk_size=4096):
                     f.write(data)
+                    progress.update(resp.num_bytes_downloaded - num_bytes_downloaded)
+                    num_bytes_downloaded = resp.num_bytes_downloaded
+
+        else:
+            for data in resp.iter_bytes(chunk_size=4096):
+                f.write(data)
 
     logger.info("download finished")
-
-
-def remove_old_extracted(cache: Cache):
-    logger.info("removing old extracted files, if any")
-
-    dirs: list[Path] = []
-
-    for file in cache.pkg_archive_extracted_files:
-        p = Path(file).resolve()
-        if p.exists() and p.is_file():
-            logger.info("removing '{}'", p)
-            p.unlink(missing_ok=True)
-        elif p.is_dir():
-            dirs.append(p)
-
-    for d in dirs:
-        is_empty = not any(d.iterdir())
-        if is_empty:
-            shutil.rmtree(d)
-        else:
-            logger.info("not removing non-empty directory: '{}'", d)
-
-    logger.info("remove_old_extracted done")
-
-
-def already_extracted(archive_file: str, out_dir: Path, cache: Cache) -> bool:
-    cached = cache.pkg_archive_extracted_files
-
-    # Files in the archive are relative to the archive root.
-    # Make them relative to the extraction target directory
-    # for comparisons. Cached paths are absolute.
-    extracted_file = (out_dir / archive_file).resolve()
-    is_cached = str(extracted_file) in cached
-    return extracted_file.exists() and is_cached
-
-
-# Convince UDK.exe to flush the log file.
-# TODO: this is fucking stupid.
-# TODO: also not needed since -FORCELOGFLUSH is enabled.
-def poke_file(file: Path, event: threading.Event):
-    while not event.is_set():
-        file.stat()
-        time.sleep(1)
 
 
 def move_file(src: Path, dst: Path):
@@ -294,10 +111,35 @@ def move_file(src: Path, dst: Path):
     shutil.move(src, dst)
 
 
+async def stop_udk_process_tree(proc: asyncio.subprocess.Process) -> int:
+    if proc.returncode is None:
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=3)
+        except TimeoutError:
+            try:
+                killer = await asyncio.create_subprocess_exec(
+                    "taskkill",
+                    "/pid",
+                    str(proc.pid),
+                    "/T",
+                    "/F",
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                await asyncio.wait_for(killer.wait(), timeout=10)
+            except (OSError, TimeoutError) as exc:
+                logger.warning("taskkill failed for UDK pid {}: {}", proc.pid, exc)
+
+            if proc.returncode is None:
+                proc.kill()
+
+    return await proc.wait()
+
+
 async def run_udk_build(
         watcher: LogWatcher,
         udk_lite_root: Path,
-        building_event: threading.Event,
+        timeout: int,
 ) -> int:
     logger.info("starting UDK build phase")
 
@@ -319,19 +161,14 @@ async def run_udk_build(
 
     logger.info("proc: {}", proc)
 
-    ok = building_event.wait(timeout=UDK_TEST_TIMEOUT)
-
-    await (await asyncio.create_subprocess_exec(
-        *["taskkill", "/pid", str(proc.pid)],
-        stderr=subprocess.DEVNULL,
-    )).wait()
-
-    if not ok:
-        raise RuntimeError("timed out waiting for UDK.exe (building_event) stop event")
+    try:
+        await asyncio.wait_for(watcher.build_complete.wait(), timeout=timeout)
+    except TimeoutError as exc:
+        raise RuntimeError("timed out waiting for UDK build completion log event") from exc
+    finally:
+        ec = await stop_udk_process_tree(proc)
 
     logger.info("UDK.exe finished")
-
-    ec = await proc.wait()
     logger.info("UDK.exe exited with code: {}", ec)
 
     if ec != 0:
@@ -343,7 +180,7 @@ async def run_udk_build(
 async def run_udk_server(
         watcher: LogWatcher,
         udk_lite_root: Path,
-        testing_event: threading.Event,
+    timeout: int,
         udk_args: str,
 ) -> int:
     logger.info("starting UDK testing phase")
@@ -378,59 +215,61 @@ async def run_udk_server(
 
     logger.info("proc: {}", test_proc)
 
-    ok = testing_event.wait(timeout=UDK_TEST_TIMEOUT)
+    try:
+        await asyncio.wait_for(watcher.test_complete.wait(), timeout=timeout)
+    except TimeoutError as exc:
+        raise RuntimeError("timed out waiting for UDK test completion log event") from exc
+    finally:
+        test_ec = await stop_udk_process_tree(test_proc)
 
-    await (await asyncio.create_subprocess_exec(
-        *["taskkill", "/pid", str(test_proc.pid)],
-        stderr=subprocess.DEVNULL,
-    )).wait()
-
-    if not ok:
-        raise RuntimeError("timed out waiting for UDK.exe (testing_event) stop event")
-
-    test_ec = await test_proc.wait()
     logger.info("UDK.exe FCrypto test run exited with code: {}", test_ec)
 
     return test_ec
 
 
-def print_udk_processes(event: threading.Event):
+async def print_udk_processes(event: asyncio.Event) -> None:
     while not event.is_set():
-        sleep_time = 0.01
+        sleep_time = 0.25
         for proc in psutil.process_iter():
-            if "udk" in proc.name().lower():
-                logger.info("{} {}", '#' * 4, proc)
-                sleep_time = 5.0
+            try:
+                if "udk" in proc.name().lower():
+                    logger.info("{} {}", '#' * 4, proc)
+                    sleep_time = 5.0
+            except (psutil.Error, OSError):
+                continue
 
-        time.sleep(sleep_time)
+        try:
+            await asyncio.wait_for(event.wait(), timeout=sleep_time)
+        except TimeoutError:
+            pass
 
 
-async def start_gmp_server(gmp_server_path: Path):
-    global FCRYPTO_GMP_SERVER_PROC
-
+async def start_gmp_server(gmp_server_path: Path) -> asyncio.subprocess.Process:
     logger.info("starting GMP server: {}", gmp_server_path)
 
-    FCRYPTO_GMP_SERVER_PROC = await asyncio.create_subprocess_exec(
+    proc = await asyncio.create_subprocess_exec(
         sys.executable,
-        str(gmp_server_path)
+        str(gmp_server_path),
     )
+    logger.info("GMP server process: {}", proc)
+    return proc
 
-    logger.info("FCRYPTO_GMP_SERVER_PROC={}", FCRYPTO_GMP_SERVER_PROC)
 
-
-async def stop_gmp_server():
-    if FCRYPTO_GMP_SERVER_PROC:
-        FCRYPTO_GMP_SERVER_PROC.terminate()
-        ec = await FCRYPTO_GMP_SERVER_PROC.wait()
-        logger.info("FCRYPTO_GMP_SERVER_PROC exited with code: {}", ec)
+async def stop_gmp_server(proc: asyncio.subprocess.Process) -> None:
+    if proc.returncode is None:
+        try:
+            proc.terminate()
+        except ProcessLookupError:
+            pass
+    try:
+        ec = await asyncio.wait_for(proc.wait(), timeout=10)
+    except TimeoutError:
+        proc.kill()
+        ec = await proc.wait()
+    logger.info("GMP server exited with code: {}", ec)
 
 
 async def main():
-    global UDK_TEST_TIMEOUT
-    global BUILDING_EVENT
-    global TESTING_EVENT
-    global POKER_EVENT
-
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--no-progress-bar",
@@ -493,7 +332,7 @@ async def main():
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         write_cache(cache_file, cache)
 
-    UDK_TEST_TIMEOUT = int(os.environ.get("UDK_TEST_TIMEOUT", defaults.UDK_TEST_TIMEOUT))
+    test_timeout = int(os.environ.get("UDK_TEST_TIMEOUT", defaults.UDK_TEST_TIMEOUT))
     udk_lite_tag = os.environ.get("UDK_LITE_TAG", defaults.UDK_LITE_TAG)
     udk_lite_root = Path(os.environ.get("UDK_LITE_ROOT", defaults.UDK_LITE_ROOT))
     udk_lite_release_url = os.environ.get("UDK_LITE_RELEASE_URL", defaults.UDK_LITE_RELEASE_URL)
@@ -543,7 +382,7 @@ async def main():
     if dl_pkg_archive:
         download_file(udk_lite_release_url, pkg_file, progress_bar=progress_bar)
         cache.udk_lite_tag = udk_lite_tag
-        remove_old_extracted(cache)
+        remove_old_extracted(cache, udk_lite_root)
         cache.pkg_archive_extracted_files = []
     else:
         logger.info("using cached archive: '{}'", pkg_file)
@@ -562,17 +401,17 @@ async def main():
         ]
         dirs = [
             t for t in targets
-            if (udk_lite_root / t).is_dir()
+            if resolve_archive_member(t, udk_lite_root).is_dir()
         ]
         targets = [t for t in targets if t not in dirs]
 
         out_files = [
-            str((udk_lite_root / target).resolve())
+            str(resolve_archive_member(target, udk_lite_root))
             for target in targets
         ]
 
         out_dirs = [
-            str(udk_lite_root / d)
+            str(resolve_archive_member(d, udk_lite_root))
             for d in dirs
         ]
 
@@ -596,37 +435,14 @@ async def main():
 
     log_dir = udk_lite_root / "UDKGame/Logs/"
     log_file = log_dir / "Launch.log"
-
-    BUILDING_EVENT = threading.Event()
-    TESTING_EVENT = threading.Event()
-    POKER_EVENT = threading.Event()
-
-    udk_print_spam_thread = threading.Thread(
-        target=print_udk_processes,
-        args=(POKER_EVENT,),
-    )
-    udk_print_spam_thread.start()
-
-    obs = watchdog.observers.Observer()
-    watcher = LogWatcher(BUILDING_EVENT, TESTING_EVENT, log_file)
-
     if not log_file.exists():
         logger.info("'{}' does not exist yet, touching...", log_file)
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.touch()
 
-    obs.schedule(watcher, str(log_dir))
-    obs.start()
-
     cfg_file = udk_lite_root / "UDKGame/Config/DefaultEngine.ini"
     if not cfg_file.exists():
         raise RuntimeError("required config file '{}' does not exist", cfg_file)
-
-    poker = threading.Thread(
-        target=poke_file,
-        args=[log_file, POKER_EVENT],
-    )
-    poker.start()
 
     cfg = UDKConfigParser(comment_prefixes=";")
     cfg.read(cfg_file)
@@ -654,42 +470,38 @@ async def main():
             *["powershell.exe", str(UDK_FW_SCRIPT_PATH)]
         )).wait()
 
-    ec = await run_udk_build(
-        watcher=watcher,
-        udk_lite_root=udk_lite_root,
-        building_event=BUILDING_EVENT,
-    )
+    watcher = LogWatcher(log_file)
+    monitor_stop = asyncio.Event()
+    monitor_task = asyncio.create_task(print_udk_processes(monitor_stop))
+    try:
+        async with AIOWatchdog(str(log_dir), event_handler=watcher):
+            ec = await run_udk_build(
+                watcher=watcher,
+                udk_lite_root=udk_lite_root,
+                timeout=test_timeout,
+            )
 
-    if not no_gmp_server:
-        await start_gmp_server(gmp_server_path)
+            gmp_proc = None
+            try:
+                if not no_gmp_server:
+                    gmp_proc = await start_gmp_server(gmp_server_path)
 
-    ec += await run_udk_server(
-        watcher=watcher,
-        udk_lite_root=udk_lite_root,
-        testing_event=TESTING_EVENT,
-        udk_args=f"Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?"
-                 f"dedicated=true?NumTestLoops={fcrypto_num_test_loops}",
-    )
-
-    if not no_gmp_server:
-        await stop_gmp_server()
-
-    obs.stop()
-    obs.join(timeout=UDK_TEST_TIMEOUT)
-
-    if obs.is_alive():
-        raise RuntimeError("timed out waiting for observer thread")
-
-    POKER_EVENT.set()
-    poker.join(timeout=5)
-
-    if poker.is_alive():
-        raise RuntimeError("timed out waiting for poker thread")
+                ec += await run_udk_server(
+                    watcher=watcher,
+                    udk_lite_root=udk_lite_root,
+                    timeout=test_timeout,
+                    udk_args=f"Entry?Mutator=FCrypto.FCryptoTestMutator?bIsLanMatch=true?"
+                             f"dedicated=true?NumTestLoops={fcrypto_num_test_loops}",
+                )
+            finally:
+                if gmp_proc is not None:
+                    await stop_gmp_server(gmp_proc)
+    finally:
+        monitor_stop.set()
+        await monitor_task
 
     if ec != 0:
         raise RuntimeError(f"UDK.exe error (sum of all exit codes): {ec}")
-
-    udk_print_spam_thread.join(timeout=5)
 
     logger.info("finished with {} warnings", len(watcher.warnings))
     logger.info("finished with {} errors", len(watcher.errors))
@@ -704,32 +516,15 @@ async def main():
     if watcher.errors:
         raise RuntimeError("failed, errors detected")
 
+    logger.info("UDK build and FCrypto tests completed successfully")
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.warning("exiting by KeyboardInterrupt")
-
-        # TODO: we need to properly forward the signal to all
-        #       subprocesses and threads!
-
-        if BUILDING_EVENT:
-            BUILDING_EVENT.set()
-        if TESTING_EVENT:
-            TESTING_EVENT.set()
-        if POKER_EVENT:
-            POKER_EVENT.set()
-
         raise
     except Exception as _e:
         logger.exception("error running main: {}: {}", type(_e).__name__, _e)
-
-        if BUILDING_EVENT:
-            BUILDING_EVENT.set()
-        if TESTING_EVENT:
-            TESTING_EVENT.set()
-        if POKER_EVENT:
-            POKER_EVENT.set()
-
         raise
