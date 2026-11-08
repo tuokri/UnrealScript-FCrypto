@@ -405,12 +405,14 @@ def print_udk_processes(event: threading.Event):
         time.sleep(sleep_time)
 
 
-async def start_gmp_server(echo_server_path: Path):
+async def start_gmp_server(gmp_server_path: Path):
     global FCRYPTO_GMP_SERVER_PROC
+
+    logger.info("starting GMP server: {}", gmp_server_path)
 
     FCRYPTO_GMP_SERVER_PROC = await asyncio.create_subprocess_exec(
         sys.executable,
-        str(echo_server_path)
+        str(gmp_server_path)
     )
 
     logger.info("FCRYPTO_GMP_SERVER_PROC={}", FCRYPTO_GMP_SERVER_PROC)
@@ -461,6 +463,7 @@ async def main():
     # )
 
     args = ap.parse_args()
+    logger.debug("args: {}", args)
     progress_bar = not args.no_progress_bar
     add_fw_rules = args.add_fw_rules
     gmp_server_path = Path(args.gmp_server_path).resolve()
@@ -616,6 +619,8 @@ async def main():
     obs.start()
 
     cfg_file = udk_lite_root / "UDKGame/Config/DefaultEngine.ini"
+    if not cfg_file.exists():
+        raise RuntimeError("required config file '{}' does not exist", cfg_file)
 
     poker = threading.Thread(
         target=poke_file,
@@ -626,8 +631,11 @@ async def main():
     cfg = UDKConfigParser(comment_prefixes=";")
     cfg.read(cfg_file)
 
+    if not cfg.has_section("UnrealEd.EditorEngine"):
+        cfg.add_section("UnrealEd.EditorEngine")
+
     pkg_name = "FCrypto"
-    edit_packages = cfg["UnrealEd.EditorEngine"].getlist("+EditPackages")
+    edit_packages = cfg["UnrealEd.EditorEngine"].getlist("+EditPackages") or []
     if pkg_name not in edit_packages:
         edit_packages.append(pkg_name)
         cfg["UnrealEd.EditorEngine"]["+EditPackages"] = "\n".join(edit_packages)
