@@ -503,7 +503,7 @@ def test_qword_operators():
     assert qw1 > qw2
     assert qw1 > qw3
     assert qw1 > qw4
-    assert not (qw1 > qw1)
+    assert not (qw1 > qw1)  # noqa: PLR0124 -- intentional equality case
     assert qw3 > qw2
     assert qw4 > qw2
     assert qw4 > qw3
@@ -511,7 +511,7 @@ def test_qword_operators():
     assert qw2 < qw1
     assert qw3 < qw1
     assert qw4 < qw1
-    assert not (qw2 < qw2)
+    assert not (qw2 < qw2)  # noqa: PLR0124 -- intentional equality case
     assert qw2 < qw3
     assert qw3 < qw4
 
