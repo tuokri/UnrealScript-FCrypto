@@ -478,7 +478,7 @@ async def main():
         try:
             cache = load_cache(cache_file)
         except Exception as e:
-            logger.error("error loading cache: {} {}", type(e).__name__, e)
+            logger.error("error loading cache: {}: {}", type(e).__name__, e)
             logger.info("delete the cache file '{}' "
                         "or cache directory '{}' to force a hard reset",
                         cache_file, CACHE_DIR)
@@ -723,7 +723,7 @@ if __name__ == "__main__":
 
         raise
     except Exception as _e:
-        logger.error("error running main: {}", _e)
+        logger.exception("error running main: {}: {}", type(_e).__name__, _e)
 
         if BUILDING_EVENT:
             BUILDING_EVENT.set()
