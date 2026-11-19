@@ -1,6 +1,6 @@
 gmpy2-stubs==2.2.1.5
 hachiko==0.6.1
-httpx2==2.16.0
+httpx2==2.16.2
 loguru==0.7.3
 psutil==7.2.2
 py7zr==1.1.4
