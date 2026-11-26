@@ -7,5 +7,5 @@ py7zr==1.1.4
 pytest-asyncio==1.4.1.post1
 tqdm==4.70.1
 udk_configparser==1.1.1
-watchdog==7.1.0
+watchdog==7.1.1
 -r ../DevUtils/requirements.txt
